@@ -2,10 +2,10 @@ import { interfaceLocal, enderecosDaRede } from './rede.js';
 import { descobrirAparelhos } from './descobrir.js';
 import { PORTAS, portasAbertas } from './portas.js';
 import { emParalelo } from './util.js';
-import { abrir, guardar, guardarTriagem, macsConhecidos, ultimoVarrimento } from './historico.js';
+import { abrir, guardar, guardarTriagem, aparelhosConhecidos, dataDoUltimoVarrimento, ultimoVarrimento } from './historico.js';
 import { compararVarrimentos } from './comparar.js';
 import { lerLoginsFalhados, TIPOS_LOGIN } from './eventos.js';
-import { prepararEntrada, triar, combinar, explicarErro } from './triagem.js';
+import { MODELO, prepararEntrada, triar, combinar, explicarErro } from './triagem.js';
 
 const local = interfaceLocal();
 const { cidr, hosts } = enderecosDaRede(local);
@@ -26,7 +26,8 @@ mostrarInventario(aparelhos);
 
 const db = abrir();
 const anterior = ultimoVarrimento(db, cidr);
-const mudancas = anterior ? compararVarrimentos(anterior, aparelhos, macsConhecidos(db)) : [];
+const ultimaData = dataDoUltimoVarrimento(db);
+const mudancas = anterior ? compararVarrimentos(anterior, aparelhos, aparelhosConhecidos(db)) : [];
 const varrimentoId = guardar(db, cidr, aparelhos);
 
 if (!anterior) {
@@ -36,8 +37,8 @@ if (!anterior) {
   mostrarMudancas(mudancas, anterior.data);
 }
 
-// Os logins falhados olham para a mesma janela de tempo que a comparação: desde o último varrimento.
-const desde = anterior ? new Date(anterior.data) : new Date(Date.now() - 24 * 60 * 60 * 1000);
+// Os logins falhados são do PC: contam desde o último varrimento em qualquer rede, para não serem lidos duas vezes.
+const desde = ultimaData ? new Date(ultimaData) : new Date(Date.now() - 24 * 60 * 60 * 1000);
 const logins = await lerLoginsFalhados(desde);
 mostrarLogins(logins, desde);
 
@@ -47,16 +48,19 @@ if (mudancas.length || logins.grupos.length) {
   if (!process.env.ANTHROPIC_API_KEY) {
     console.log('Triagem com LLM desligada: falta a ANTHROPIC_API_KEY (ver README).\n');
   } else {
-    const entrada = prepararEntrada({ rede: cidr, local, aparelhos, mudancas, grupos: logins.grupos, desde });
+    const entrada = prepararEntrada({ rede: cidr, local, aparelhos, mudancas, grupos: logins.grupos, desde, temLinhaDeBase: Boolean(anterior) });
     const n = entrada.sinais.length;
     console.log(`A pedir ao modelo a triagem de ${n} ${n === 1 ? 'sinal' : 'sinais'}…`);
+    let registo;
     try {
-      const { triagem, modelo } = await triar(entrada);
-      guardarTriagem(db, varrimentoId, modelo, entrada, triagem);
+      const { triagem, modelo, bruto } = await triar(entrada);
+      registo = { modelo, resposta: bruto };
       mostrarTriagem(combinar(entrada, triagem), modelo);
     } catch (erro) {
-      console.log(`A triagem falhou: ${explicarErro(erro)}\n`);
+      registo = { modelo: erro.modelo ?? MODELO, resposta: erro.bruto ?? null, erro: explicarErro(erro) };
+      console.log(`A triagem falhou: ${registo.erro}\n`);
     }
+    guardarTriagem(db, varrimentoId, { entrada, ...registo });
   }
 }
 

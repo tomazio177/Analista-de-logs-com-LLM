@@ -42,8 +42,8 @@ Se não disser "Falha"/"Failure", liga-a com `auditpol /set /subcategory:"{0CCE9
 1. **Descobrir a rede** (`src/rede.js`) — lê as interfaces do sistema, ignora adaptadores virtuais (Docker, WSL, VPNs) e calcula os endereços da rede local. Redes maiores que /24 ficam limitadas a 254 endereços.
 2. **Descobrir aparelhos** (`src/descobrir.js`) — ping a cada endereço, 48 em paralelo, e depois a tabela ARP do sistema. A tabela ARP apanha os aparelhos que ignoram o ping: para o ping sair, o PC teve de perguntar quem tinha aquele IP, e a resposta fica registada.
 3. **Testar portas** (`src/portas.js`) — *connect scan* a 18 portas escolhidas pelo que revelam num aparelho de casa (telnet, SMB, RDP, MQTT, câmaras RTSP, impressoras…). Não precisa de privilégios de administrador.
-4. **Guardar e comparar** (`src/historico.js`, `src/comparar.js`) — SQLite com quatro tabelas (varrimentos, dispositivos, observações, triagens). A comparação deteta aparelhos novos, que voltaram, que saíram, que mudaram de IP, e portas que abriram ou fecharam.
-5. **Ler os logins falhados** (`src/eventos.js`) — `wevtutil` lê os eventos 4625 desde o último varrimento, em XML (os campos têm nome e não dependem da língua do Windows). Os eventos são agrupados por **origem e tipo de login**, não por utilizador: quem ataca é a origem, os nomes vão variando. Assim, força bruta (um utilizador, muitas vezes) e *password spraying* (muitos utilizadores, poucas vezes cada) aparecem ambos como um só grupo.
+4. **Guardar e comparar** (`src/historico.js`, `src/comparar.js`) — SQLite com quatro tabelas (varrimentos, dispositivos, observações, triagens). A comparação deteta aparelhos novos, que voltaram, que saíram, que mudaram de IP, e portas que abriram ou fecharam. Um aparelho que volta depois de faltar a um varrimento tem as portas comparadas com a última vez que foi visto.
+5. **Ler os logins falhados** (`src/eventos.js`) — `wevtutil` lê os eventos 4625 desde o último varrimento (de qualquer rede: os logins são do PC), em XML (os campos têm nome e não dependem da língua do Windows). Os eventos são agrupados por **origem e tipo de login**, não por utilizador: quem ataca é a origem, os nomes vão variando. Assim, força bruta (um utilizador, muitas vezes) e *password spraying* (muitos utilizadores, poucas vezes cada) aparecem ambos como um só grupo.
 6. **Triagem** (`src/triagem.js`) — cada mudança e cada grupo de logins vira um *sinal* com um id (`m1`, `l1`…). Os sinais, e não o inventário inteiro, vão para o Claude, que devolve para cada um uma gravidade (info, baixa, média, alta), a explicação e o que fazer.
 
 ## Porque é que o LLM não manda sozinho
@@ -59,17 +59,26 @@ Um LLM a decidir o que é alarme é uma peça que pode errar, e que pode ser eng
   |---|---|
   | Logins falhados vindos da rede, 50 ou mais, ou com 5+ utilizadores diferentes | alta |
   | Logins falhados vindos da rede, 5 ou mais | média |
-  | Telnet (23) ou RDP (3389) que abriu, ou num aparelho novo | média |
+  | Telnet (23) ou RDP (3389) que abriu desde a última vez que o aparelho foi visto, ou num aparelho novo | média |
   | Aparelho novo | baixa |
+
+  "Vindos da rede" inclui os logins de rede para os quais o Windows não registou o IP (acontece com RDP por NLA e com partilhas de ficheiros): aparecem com origem `desconhecida`, e não como locais.
 
   Quando as regras sobem uma gravidade, a saída diz-o. Os desacordos entre as regras e o modelo são informação: ou as regras são demasiado rígidas, ou o modelo foi enganado.
 - **A correlação faz-se em código.** Se um login falhado vem de um IP que está no inventário, o sinal leva o aparelho (MAC, nome, se é novo na rede). O modelo recebe a ligação feita, não tem de a adivinhar. O mesmo para os MACs aleatórios dos telemóveis, que se detetam por um bit do próprio MAC.
-- **Fica tudo registado.** A tabela `triagens` guarda o que foi enviado e o que o modelo respondeu, tal e qual. É o que permite, mais tarde, ver onde o modelo errou e comparar modelos ou instruções.
+- **Fica tudo registado.** A tabela `triagens` guarda o que foi enviado e o texto que o modelo devolveu, tal e qual — também quando a triagem falha (recusa, resposta cortada, fora do esquema, erro da API), com o motivo. São justamente esses os casos que interessa rever mais tarde, para ver onde o modelo errou e comparar modelos ou instruções.
 - **Texto de fora é limpo antes de chegar ao terminal.** Nomes de utilizador, de aparelhos e a própria resposta do modelo perdem os caracteres de controlo, que podiam trazer sequências de escape do terminal.
 
 ## O que vai para a API
 
-Só quando há sinais, e só os sinais: IP e MAC dos aparelhos que mudaram, os nomes que o router lhes dá, as portas abertas e, para os logins falhados, a origem, os nomes de utilizador tentados (os 5 mais frequentes) e os nomes de máquina que o Windows registou. O inventário completo não vai, e o evento 4625 não contém passwords.
+Só quando há sinais. Vai:
+
+- de cada aparelho que mudou: IP, MAC, o nome que o router lhe dá e as portas abertas;
+- de cada grupo de logins falhados: a origem, o tipo, quantas tentativas, os motivos e os nomes de máquina que o Windows registou; se a origem for um aparelho da rede (mesmo um que não mudou), o MAC e o nome dele;
+- nos logins vindos da rede, os nomes de utilizador tentados (os 5 mais frequentes);
+- o contexto: a rede, o IP deste PC, quantos aparelhos há e a janela de tempo.
+
+O inventário completo não vai. O 4625 não regista a password, mas quem se engana e a escreve no campo do utilizador deixa-a lá como nome de utilizador. Por isso os nomes dos logins locais, que são quase sempre do próprio dono, não saem do PC (continuam a aparecer no terminal).
 
 O modelo é o Claude Opus 5.5 (`claude-opus-5-5`). Uma triagem com meia dúzia de sinais anda na ordem dos cêntimos. Como falar de ataques pode disparar os filtros de segurança do modelo, o pedido vai com `fallbacks: "default"`: em caso de recusa, a API repete-o noutro modelo em vez de devolver a recusa.
 
@@ -83,6 +92,7 @@ Estas são as fontes de falsos positivos e falsos negativos — e a parte mais i
 - **Só 18 portas.** Um serviço numa porta fora da lista passa despercebido.
 - **Nomes.** O DNS inverso raramente funciona numa rede doméstica; a maioria dos aparelhos aparece sem nome.
 - **Só os logins falhados deste PC.** Tentativas contra o router, o NAS ou outro PC não aparecem aqui. E um atacante que acerta na password à primeira não gera nenhum 4625: os logins bem-sucedidos (4624) ainda não são analisados.
+- **Origem desconhecida.** Com RDP por NLA e NTLM por SMB, o Windows muitas vezes não regista o IP de quem tentou entrar. Esses logins contam como vindos da rede, mas não se sabe de que aparelho; o evento 140 do `RdpCoreTS` teria o IP, e ainda não é lido.
 - **No máximo 5000 eventos por varrimento.** Chega para ver um ataque, não para os contar todos; a saída avisa quando o limite é atingido.
 - **O modelo pode errar para os dois lados.** As regras só impedem que baixe a gravidade dos sinais da tabela; um alarme exagerado continua possível.
 

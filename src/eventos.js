@@ -52,7 +52,9 @@ export async function lerLoginsFalhados(desde) {
   } catch (erro) {
     // O wevtutil sai com o código de erro do Windows: 5 é "acesso negado", em qualquer língua.
     if (erro.code === 5) return { estado: 'sem-permissao', grupos: [] };
-    return { estado: 'erro', grupos: [], motivo: String(erro.stderr || erro.message).trim().split('\n')[0] };
+    // Com encoding 'buffer', o stderr é sempre um Buffer, mesmo vazio (ex.: wevtutil não encontrado).
+    const stderr = erro.stderr?.length ? limpar(descodificarSaida(erro.stderr), 200) : '';
+    return { estado: 'erro', grupos: [], motivo: stderr || limpar(erro.message, 200) };
   }
 }
 
@@ -80,6 +82,7 @@ export function lerEventosXml(xml) {
       campos[nome] = descodificarXml(valor).trim();
     }
     const vazio = (v) => (!v || v === '-' ? null : v);
+    const tipoLogin = Number(campos.LogonType);
     const status = (campos.Status ?? '').toLowerCase();
     const subStatus = (campos.SubStatus ?? '').toLowerCase();
     const codigo = vazio(subStatus) && subStatus !== '0x0' ? subStatus : status;
@@ -88,8 +91,8 @@ export function lerEventosXml(xml) {
       data: /<TimeCreated SystemTime=['"]([^'"]+)['"]/.exec(bloco)?.[1] ?? null,
       // O nome de utilizador e o da máquina são escolhidos por quem tenta entrar.
       utilizador: limpar(vazio(campos.TargetUserName), 64),
-      origem: normalizarOrigem(campos.IpAddress),
-      tipoLogin: Number(campos.LogonType),
+      origem: normalizarOrigem(campos.IpAddress, tipoLogin),
+      tipoLogin,
       motivo: MOTIVOS[codigo] ?? codigo,
       estacao: limpar(vazio(campos.WorkstationName), 64),
     });
@@ -97,9 +100,12 @@ export function lerEventosXml(xml) {
   return eventos;
 }
 
-function normalizarOrigem(ip) {
-  if (!ip || ip === '-' || ip === '127.0.0.1' || ip === '::1') return 'local';
-  return ip.replace(/^::ffff:/i, '');
+// Sem IP não quer dizer local: com RDP por NLA, ou NTLM por SMB, o Windows regista logins de rede
+// (tipo 3) sem endereço de origem. Nesses tipos, a origem fica 'desconhecida' e continua a contar como remota.
+function normalizarOrigem(ip, tipoLogin) {
+  if (ip === '127.0.0.1' || ip === '::1') return 'local';
+  if (!ip || ip === '-') return TIPOS_REMOTOS.has(tipoLogin) ? 'desconhecida' : 'local';
+  return limpar(ip.replace(/^::ffff:/i, ''), 64);
 }
 
 const contar = (mapa, chave) => mapa.set(chave, (mapa.get(chave) ?? 0) + 1);

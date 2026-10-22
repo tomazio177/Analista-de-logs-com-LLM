@@ -31,14 +31,26 @@ export function abrir(ficheiro = FICHEIRO) {
       varrimento_id  INTEGER PRIMARY KEY REFERENCES varrimentos(id),
       modelo         TEXT NOT NULL,
       entrada        TEXT NOT NULL,
-      resposta       TEXT NOT NULL
+      resposta       TEXT,
+      erro           TEXT
     );
   `);
   return db;
 }
 
-export function macsConhecidos(db) {
-  return new Set(db.prepare('SELECT mac FROM dispositivos').all().map((r) => r.mac));
+// Todos os aparelhos alguma vez vistos, com as portas que tinham da última vez que apareceram.
+export function aparelhosConhecidos(db) {
+  const linhas = db.prepare(`
+    SELECT o.mac, o.portas FROM observacoes o
+    JOIN (SELECT mac, MAX(varrimento_id) AS ultimo FROM observacoes GROUP BY mac) u
+      ON u.mac = o.mac AND u.ultimo = o.varrimento_id
+  `).all();
+  return new Map(linhas.map((l) => [l.mac, JSON.parse(l.portas)]));
+}
+
+// Data do último varrimento, de qualquer rede: os logins são do PC, não da rede onde ele está.
+export function dataDoUltimoVarrimento(db) {
+  return db.prepare('SELECT data FROM varrimentos ORDER BY id DESC LIMIT 1').get()?.data ?? null;
 }
 
 export function ultimoVarrimento(db, rede) {
@@ -79,13 +91,14 @@ export function guardar(db, rede, aparelhos, data = new Date().toISOString()) {
   }
 }
 
-// Guarda o que foi ao modelo e o que ele respondeu, tal e qual.
+// Guarda o que foi ao modelo e o texto que ele devolveu, tal e qual — também quando a triagem falha.
 // Sem isto não há como saber, mais tarde, se o modelo acertou — nem como comparar modelos ou instruções.
-export function guardarTriagem(db, varrimentoId, modelo, entrada, resposta) {
-  db.prepare('INSERT INTO triagens (varrimento_id, modelo, entrada, resposta) VALUES (?, ?, ?, ?)').run(
+export function guardarTriagem(db, varrimentoId, { modelo, entrada, resposta, erro = null }) {
+  db.prepare('INSERT INTO triagens (varrimento_id, modelo, entrada, resposta, erro) VALUES (?, ?, ?, ?, ?)').run(
     varrimentoId,
     modelo,
     JSON.stringify(entrada),
-    JSON.stringify(resposta),
+    resposta,
+    erro,
   );
 }

@@ -24,13 +24,21 @@ test('o motivo vem do SubStatus quando existe, senão do Status', () => {
 
 test('origens locais, IPv4 mapeado em IPv6 e campos vazios ficam normalizados', () => {
   const eventos = lerEventosXml(
-    evento({ data: 'a', utilizador: '-', ip: '127.0.0.1', tipo: 2 }) +
-      evento({ data: 'b', utilizador: 'joao', ip: '::ffff:192.168.1.7', tipo: 3 }),
+    evento({ data: 'a', utilizador: '-', ip: '127.0.0.1', tipo: 3 }) +
+      evento({ data: 'b', utilizador: 'joao', ip: '::ffff:192.168.1.7', tipo: 3 }) +
+      evento({ data: 'c', utilizador: 'joao', ip: '-', tipo: 2 }),
   );
   assert.equal(eventos[0].origem, 'local');
   assert.equal(eventos[0].utilizador, null);
   assert.equal(eventos[0].estacao, null);
   assert.equal(eventos[1].origem, '192.168.1.7');
+  assert.equal(eventos[2].origem, 'local'); // login ao teclado sem IP: é mesmo local
+});
+
+test('um login de rede sem IP fica com origem desconhecida, não local', () => {
+  // RDP com NLA e NTLM por SMB registam o 4625 com LogonType 3 e IpAddress "-".
+  const [e] = lerEventosXml(evento({ data: 'a', utilizador: 'admin', ip: '-', tipo: 3, estacao: 'KALI' }));
+  assert.equal(e.origem, 'desconhecida');
 });
 
 test('descodifica entidades XML e corta caracteres de controlo vindos de quem ataca', () => {
@@ -41,7 +49,7 @@ test('descodifica entidades XML e corta caracteres de controlo vindos de quem at
 test('aceita <Data/> vazio e ignora texto que não seja um evento', () => {
   const xml = `lixo antes <Event xmlns='x'><System><TimeCreated SystemTime='t'/></System><EventData><Data Name='IpAddress'/><Data Name='LogonType'>10</Data></EventData></Event>`;
   const [e] = lerEventosXml(xml);
-  assert.equal(e.origem, 'local');
+  assert.equal(e.origem, 'desconhecida');
   assert.equal(e.tipoLogin, 10);
 });
 
