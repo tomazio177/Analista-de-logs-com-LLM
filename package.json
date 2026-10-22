@@ -8,7 +8,7 @@
   },
   "scripts": {
     "scan": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/index.js",
-    "test": "node --test"
+    "test": "node --disable-warning=ExperimentalWarning --test"
   },
   "license": "MIT",
   "dependencies": {

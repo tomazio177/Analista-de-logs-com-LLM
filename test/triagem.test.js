@@ -19,7 +19,7 @@ const grupos = [
     motivos: [{ valor: 'password errada', tentativas: 12 }], estacoes: [],
   },
 ];
-const entrada = prepararEntrada({ rede: '192.168.1.0/24', local, aparelhos, mudancas, grupos, desde: new Date('2026-10-20T20:00:00Z'), agora: new Date('2026-10-20T22:00:00Z') });
+const entrada = prepararEntrada({ rede: '192.168.1.0/24', local, aparelhos, mudancas, grupos, mudancasDesde: '2026-10-20T20:00:00Z', loginsDesde: new Date('2026-10-20T20:00:00Z'), agora: new Date('2026-10-20T22:00:00Z') });
 
 test('MAC aleatório: o bit "administrado localmente" do primeiro octeto', () => {
   assert.equal(macAleatorio('3a:11:22:33:44:55'), true);
@@ -29,12 +29,14 @@ test('MAC aleatório: o bit "administrado localmente" do primeiro octeto', () =>
 
 test('a entrada tem um sinal por mudança e por grupo de logins, com os ids originais', () => {
   assert.deepEqual(entrada.sinais.map((s) => s.id), ['m1', 'm2', 'l1']);
+  assert.equal(entrada.mudancas_desde, '2026-10-20T20:00:00Z');
+  assert.equal(entrada.logins_desde, '2026-10-20T20:00:00.000Z');
   assert.deepEqual(entrada.sinais[0].portas_abertas, ['22 ssh', '23 telnet']);
   assert.equal(entrada.sinais[0].mac_aleatorio, true);
 });
 
 test('os nomes de utilizador só seguem para o modelo nos logins remotos', () => {
-  const locais = prepararEntrada({ rede: 'r', local, aparelhos, mudancas: [], grupos: [{ ...grupos[0], origem: 'local', tipoLogin: 2 }], desde: new Date(0) });
+  const locais = prepararEntrada({ rede: 'r', local, aparelhos, mudancas: [], grupos: [{ ...grupos[0], origem: 'local', tipoLogin: 2 }], loginsDesde: new Date(0) });
   assert.equal(locais.sinais[0].remoto, false);
   assert.equal(locais.sinais[0].utilizadores, undefined);
   assert.equal(locais.sinais[0].utilizadores_distintos, 1);
@@ -42,7 +44,7 @@ test('os nomes de utilizador só seguem para o modelo nos logins remotos', () =>
 });
 
 test('um login de rede sem IP conta como remoto e fica com o piso das regras', () => {
-  const semIp = prepararEntrada({ rede: 'r', local, aparelhos, mudancas: [], grupos: [{ ...grupos[0], origem: 'desconhecida', tentativas: 300 }], desde: new Date(0) });
+  const semIp = prepararEntrada({ rede: 'r', local, aparelhos, mudancas: [], grupos: [{ ...grupos[0], origem: 'desconhecida', tentativas: 300 }], loginsDesde: new Date(0) });
   const [l1] = semIp.sinais;
   assert.equal(l1.remoto, true);
   assert.equal('aparelho_de_origem' in l1, false);
@@ -50,7 +52,7 @@ test('um login de rede sem IP conta como remoto e fica com o piso das regras', (
 });
 
 test('sem linha de base, não se afirma que o aparelho de origem é conhecido', () => {
-  const primeiro = prepararEntrada({ rede: 'r', local, aparelhos, mudancas: [], grupos, desde: new Date(0), temLinhaDeBase: false });
+  const primeiro = prepararEntrada({ rede: 'r', local, aparelhos, mudancas: [], grupos, mudancasDesde: null, loginsDesde: new Date(0) });
   assert.equal(primeiro.sinais[0].aparelho_de_origem.novo_na_rede, null);
 });
 
@@ -136,4 +138,5 @@ test('triar rejeita respostas fora do esquema, mesmo que sejam JSON', async () =
 test('triar trata recusas e respostas cortadas antes de tentar ler o JSON', async () => {
   await assert.rejects(triar(entrada, clienteFalso({ stop_reason: 'refusal', content: [] })), /recusou/);
   await assert.rejects(triar(entrada, clienteFalso({ stop_reason: 'max_tokens', content: [{ type: 'text', text: '{' }] })), /cortada/);
+  await assert.rejects(triar(entrada, clienteFalso({ content: [{ type: 'thinking', thinking: '' }] })), /não trouxe texto/);
 });

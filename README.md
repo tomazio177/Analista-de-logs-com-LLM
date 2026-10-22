@@ -73,10 +73,10 @@ Um LLM a decidir o que é alarme é uma peça que pode errar, e que pode ser eng
 
 Só quando há sinais. Vai:
 
-- de cada aparelho que mudou: IP, MAC, o nome que o router lhe dá e as portas abertas;
-- de cada grupo de logins falhados: a origem, o tipo, quantas tentativas, os motivos e os nomes de máquina que o Windows registou; se a origem for um aparelho da rede (mesmo um que não mudou), o MAC e o nome dele;
+- de cada aparelho que mudou: IP (e o anterior, se mudou), MAC e se é aleatório, o nome que o router lhe dá e as portas abertas;
+- de cada grupo de logins falhados: a origem, o tipo, quantas tentativas, a hora da primeira e da última, os motivos, quantos nomes de utilizador diferentes foram tentados e os nomes de máquina que o Windows registou; se a origem for um aparelho da rede (mesmo um que não mudou), o MAC e o nome dele, e se é novo na rede ou este PC;
 - nos logins vindos da rede, os nomes de utilizador tentados (os 5 mais frequentes);
-- o contexto: a rede, o IP deste PC, quantos aparelhos há e a janela de tempo.
+- o contexto: a rede, o IP deste PC, quantos aparelhos há e desde quando contam as mudanças e os logins.
 
 O inventário completo não vai. O 4625 não regista a password, mas quem se engana e a escreve no campo do utilizador deixa-a lá como nome de utilizador. Por isso os nomes dos logins locais, que são quase sempre do próprio dono, não saem do PC (continuam a aparecer no terminal).
 

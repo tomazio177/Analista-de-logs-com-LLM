@@ -7,6 +7,13 @@ const FICHEIRO = path.join(import.meta.dirname, '..', 'data', 'sentinela.db');
 export function abrir(ficheiro = FICHEIRO) {
   mkdirSync(path.dirname(ficheiro), { recursive: true });
   const db = new DatabaseSync(ficheiro);
+
+  // A primeira versão da fase 2 criou a tabela triagens sem a coluna erro e com a resposta obrigatória.
+  // O SQLite não tira um NOT NULL com ALTER TABLE: a tabela antiga é recriada e os dados copiados.
+  const colunas = db.prepare('PRAGMA table_info(triagens)').all();
+  const migrar = colunas.length > 0 && !colunas.some((c) => c.name === 'erro');
+  db.exec('BEGIN');
+  if (migrar) db.exec('ALTER TABLE triagens RENAME TO triagens_antigas');
   db.exec(`
     CREATE TABLE IF NOT EXISTS varrimentos (
       id    INTEGER PRIMARY KEY,
@@ -35,6 +42,14 @@ export function abrir(ficheiro = FICHEIRO) {
       erro           TEXT
     );
   `);
+  if (migrar) {
+    db.exec(`
+      INSERT INTO triagens (varrimento_id, modelo, entrada, resposta)
+        SELECT varrimento_id, modelo, entrada, resposta FROM triagens_antigas;
+      DROP TABLE triagens_antigas;
+    `);
+  }
+  db.exec('COMMIT');
   return db;
 }
 

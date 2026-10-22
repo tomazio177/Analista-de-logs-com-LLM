@@ -48,7 +48,7 @@ if (mudancas.length || logins.grupos.length) {
   if (!process.env.ANTHROPIC_API_KEY) {
     console.log('Triagem com LLM desligada: falta a ANTHROPIC_API_KEY (ver README).\n');
   } else {
-    const entrada = prepararEntrada({ rede: cidr, local, aparelhos, mudancas, grupos: logins.grupos, desde, temLinhaDeBase: Boolean(anterior) });
+    const entrada = prepararEntrada({ rede: cidr, local, aparelhos, mudancas, grupos: logins.grupos, mudancasDesde: anterior?.data ?? null, loginsDesde: desde });
     const n = entrada.sinais.length;
     console.log(`A pedir ao modelo a triagem de ${n} ${n === 1 ? 'sinal' : 'sinais'}…`);
     let registo;
@@ -60,7 +60,11 @@ if (mudancas.length || logins.grupos.length) {
       registo = { modelo: erro.modelo ?? MODELO, resposta: erro.bruto ?? null, erro: explicarErro(erro) };
       console.log(`A triagem falhou: ${registo.erro}\n`);
     }
-    guardarTriagem(db, varrimentoId, { entrada, ...registo });
+    try {
+      guardarTriagem(db, varrimentoId, { entrada, ...registo });
+    } catch (erro) {
+      console.log(`Aviso: a triagem não ficou guardada (${erro.message}).\n`);
+    }
   }
 }
 

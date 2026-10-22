@@ -22,7 +22,7 @@ export const Triagem = z.object({
   ),
 });
 
-const INSTRUCOES = `És o analista de segurança de uma rede doméstica. Recebes, em JSON, os sinais que um programa detetou de forma determinística: mudanças na rede local desde o último varrimento (aparelhos novos, que voltaram, que saíram, que mudaram de IP, portas que abriram ou fecharam) e logins falhados no Windows deste PC (evento 4625), já agrupados por origem.
+const INSTRUCOES = `És o analista de segurança de uma rede doméstica. Recebes, em JSON, os sinais que um programa detetou de forma determinística: mudanças na rede local desde o varrimento anterior desta rede, feito em mudancas_desde (aparelhos novos, que voltaram, que saíram, que mudaram de IP, portas que abriram ou fecharam), e logins falhados no Windows deste PC desde logins_desde (evento 4625), já agrupados por origem.
 
 O teu trabalho é a triagem: para cada sinal, dizer quão preocupante é, porquê e o que fazer. Quem lê é o dono da casa, que percebe de computadores mas não é especialista em segurança. Escreve em português de Portugal, curto e concreto.
 
@@ -97,15 +97,17 @@ function sinalDeLogins(g, porIp, macsNovos) {
 }
 
 // O que vai para o modelo: só os sinais e o mínimo de contexto, não o inventário inteiro.
-// Sem linha de base (primeiro varrimento) não se sabe que aparelhos são novos: fica null, não false.
-export function prepararEntrada({ rede, local, aparelhos, mudancas, grupos, desde, temLinhaDeBase = true, agora = new Date() }) {
+// As mudanças contam desde o varrimento anterior desta rede; os logins, desde o último em qualquer rede.
+// Sem varrimento anterior (mudancasDesde null) não se sabe que aparelhos são novos: fica null, não false.
+export function prepararEntrada({ rede, local, aparelhos, mudancas, grupos, mudancasDesde = null, loginsDesde, agora = new Date() }) {
   const porIp = new Map(aparelhos.map((a) => [a.ip, a]));
-  const macsNovos = temLinhaDeBase ? new Set(mudancas.filter((m) => m.tipo === 'novo').map((m) => m.aparelho.mac)) : null;
+  const macsNovos = mudancasDesde ? new Set(mudancas.filter((m) => m.tipo === 'novo').map((m) => m.aparelho.mac)) : null;
   return {
     rede,
     este_pc: local.ip,
     aparelhos_na_rede: aparelhos.length,
-    desde: desde.toISOString(),
+    mudancas_desde: mudancasDesde,
+    logins_desde: loginsDesde.toISOString(),
     agora: agora.toISOString(),
     sinais: [...mudancas.map(sinalDeMudanca), ...grupos.map((g) => sinalDeLogins(g, porIp, macsNovos))],
   };
@@ -161,6 +163,8 @@ export async function triar(entrada, cliente = new Anthropic()) {
 
   if (resposta.stop_reason === 'refusal') falhar('o modelo recusou fazer a triagem');
   if (resposta.stop_reason === 'max_tokens') falhar('a resposta foi cortada a meio (max_tokens)');
+
+  if (bruto == null) falhar('a resposta não trouxe texto');
 
   let json;
   try {
