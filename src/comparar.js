@@ -1,5 +1,5 @@
 // Compara o varrimento atual com o anterior e devolve só o que mudou.
-// Esta lista é o que, na fase 2, vai para o modelo — não o inventário inteiro.
+// Esta lista é o que vai para o modelo — não o inventário inteiro.
 export function compararVarrimentos(anterior, atuais, conhecidos) {
   const mudancas = [];
   const vistosAgora = new Set(atuais.map((a) => a.mac));
@@ -28,5 +28,6 @@ export function compararVarrimentos(anterior, atuais, conhecidos) {
     if (!vistosAgora.has(mac)) mudancas.push({ tipo: 'desapareceu', aparelho: { mac, ip: antes.ip } });
   }
 
-  return mudancas;
+  // O id liga cada mudança à avaliação do modelo: é por ele que se verifica que nenhuma ficou de fora.
+  return mudancas.map((m, i) => ({ id: `m${i + 1}`, ...m }));
 }

@@ -27,6 +27,12 @@ export function abrir(ficheiro = FICHEIRO) {
       portas         TEXT NOT NULL,
       PRIMARY KEY (varrimento_id, mac)
     );
+    CREATE TABLE IF NOT EXISTS triagens (
+      varrimento_id  INTEGER PRIMARY KEY REFERENCES varrimentos(id),
+      modelo         TEXT NOT NULL,
+      entrada        TEXT NOT NULL,
+      resposta       TEXT NOT NULL
+    );
   `);
   return db;
 }
@@ -66,8 +72,20 @@ export function guardar(db, rede, aparelhos, data = new Date().toISOString()) {
       dispositivo.run(a.mac, data, data, a.ip, a.nome);
     }
     db.exec('COMMIT');
+    return id;
   } catch (erro) {
     db.exec('ROLLBACK');
     throw erro;
   }
+}
+
+// Guarda o que foi ao modelo e o que ele respondeu, tal e qual.
+// Sem isto não há como saber, mais tarde, se o modelo acertou — nem como comparar modelos ou instruções.
+export function guardarTriagem(db, varrimentoId, modelo, entrada, resposta) {
+  db.prepare('INSERT INTO triagens (varrimento_id, modelo, entrada, resposta) VALUES (?, ?, ?, ?)').run(
+    varrimentoId,
+    modelo,
+    JSON.stringify(entrada),
+    JSON.stringify(resposta),
+  );
 }
