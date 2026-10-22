@@ -1,5 +1,5 @@
 {
-  "name": "sentinela",
+  "name": "analista-de-logs-com-llm",
   "version": "0.1.0",
   "description": "Vigia a rede de casa: descobre aparelhos, guarda o histórico e avisa quando algo muda.",
   "type": "module",

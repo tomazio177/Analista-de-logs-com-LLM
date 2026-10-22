@@ -8,7 +8,7 @@ import { compararVarrimentos } from './comparar.js';
 const local = interfaceLocal();
 const { cidr, hosts } = enderecosDaRede(local);
 
-console.log(`\nSentinela — rede ${cidr} (interface "${local.nome}", este PC é ${local.ip})`);
+console.log(`\nAnalista de logs com LLM — rede ${cidr} (interface "${local.nome}", este PC é ${local.ip})`);
 
 const aparelhos = await descobrirAparelhos(local, hosts, (feitos, total) => {
   process.stdout.write(`\rA procurar aparelhos… ${feitos}/${total}`);

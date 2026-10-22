@@ -1,4 +1,4 @@
-# Sentinela
+# Analista de logs com LLM
 
 Vigia a rede de casa: descobre que aparelhos estão ligados, que portas têm abertas, guarda o histórico e diz o que mudou desde a última vez. A fase seguinte põe um LLM a fazer a triagem dessas mudanças.
 
