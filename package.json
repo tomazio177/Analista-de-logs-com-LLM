@@ -1,13 +1,18 @@
 {
   "name": "analista-de-logs-com-llm",
-  "version": "0.1.0",
-  "description": "Vigia a rede de casa: descobre aparelhos, guarda o histórico e avisa quando algo muda.",
+  "version": "0.2.0",
+  "description": "Vigia a rede de casa e os logins falhados do Windows, e pede a um LLM a triagem do que mudou.",
   "type": "module",
   "engines": {
     "node": ">=22.13"
   },
   "scripts": {
-    "scan": "node --disable-warning=ExperimentalWarning src/index.js"
+    "scan": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.132.1",
+    "zod": "4.6.5"
+  }
 }

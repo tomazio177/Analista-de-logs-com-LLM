@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import dns from 'node:dns/promises';
-import { emParalelo, comTimeout } from './util.js';
+import { emParalelo, comTimeout, limpar } from './util.js';
 
 const correr = promisify(execFile);
 const WINDOWS = process.platform === 'win32';
@@ -33,9 +33,10 @@ export async function tabelaArp() {
   return tabela;
 }
 
+// Em casa, o nome vem quase sempre do router, que o copia do pedido DHCP — ou seja, quem o escolhe é o próprio aparelho.
 async function nomeDe(ip) {
   const nomes = await comTimeout(dns.reverse(ip), 1500, []);
-  return nomes[0] ?? null;
+  return limpar(nomes[0], 64);
 }
 
 // Um aparelho conta como presente se respondeu ao ping OU se apareceu na tabela ARP.

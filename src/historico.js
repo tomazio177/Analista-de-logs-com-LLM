@@ -7,6 +7,13 @@ const FICHEIRO = path.join(import.meta.dirname, '..', 'data', 'sentinela.db');
 export function abrir(ficheiro = FICHEIRO) {
   mkdirSync(path.dirname(ficheiro), { recursive: true });
   const db = new DatabaseSync(ficheiro);
+
+  // A primeira versão da fase 2 criou a tabela triagens sem a coluna erro e com a resposta obrigatória.
+  // O SQLite não tira um NOT NULL com ALTER TABLE: a tabela antiga é recriada e os dados copiados.
+  const colunas = db.prepare('PRAGMA table_info(triagens)').all();
+  const migrar = colunas.length > 0 && !colunas.some((c) => c.name === 'erro');
+  db.exec('BEGIN');
+  if (migrar) db.exec('ALTER TABLE triagens RENAME TO triagens_antigas');
   db.exec(`
     CREATE TABLE IF NOT EXISTS varrimentos (
       id    INTEGER PRIMARY KEY,
@@ -27,12 +34,38 @@ export function abrir(ficheiro = FICHEIRO) {
       portas         TEXT NOT NULL,
       PRIMARY KEY (varrimento_id, mac)
     );
+    CREATE TABLE IF NOT EXISTS triagens (
+      varrimento_id  INTEGER PRIMARY KEY REFERENCES varrimentos(id),
+      modelo         TEXT NOT NULL,
+      entrada        TEXT NOT NULL,
+      resposta       TEXT,
+      erro           TEXT
+    );
   `);
+  if (migrar) {
+    db.exec(`
+      INSERT INTO triagens (varrimento_id, modelo, entrada, resposta)
+        SELECT varrimento_id, modelo, entrada, resposta FROM triagens_antigas;
+      DROP TABLE triagens_antigas;
+    `);
+  }
+  db.exec('COMMIT');
   return db;
 }
 
-export function macsConhecidos(db) {
-  return new Set(db.prepare('SELECT mac FROM dispositivos').all().map((r) => r.mac));
+// Todos os aparelhos alguma vez vistos, com as portas que tinham da última vez que apareceram.
+export function aparelhosConhecidos(db) {
+  const linhas = db.prepare(`
+    SELECT o.mac, o.portas FROM observacoes o
+    JOIN (SELECT mac, MAX(varrimento_id) AS ultimo FROM observacoes GROUP BY mac) u
+      ON u.mac = o.mac AND u.ultimo = o.varrimento_id
+  `).all();
+  return new Map(linhas.map((l) => [l.mac, JSON.parse(l.portas)]));
+}
+
+// Data do último varrimento, de qualquer rede: os logins são do PC, não da rede onde ele está.
+export function dataDoUltimoVarrimento(db) {
+  return db.prepare('SELECT data FROM varrimentos ORDER BY id DESC LIMIT 1').get()?.data ?? null;
 }
 
 export function ultimoVarrimento(db, rede) {
@@ -66,8 +99,21 @@ export function guardar(db, rede, aparelhos, data = new Date().toISOString()) {
       dispositivo.run(a.mac, data, data, a.ip, a.nome);
     }
     db.exec('COMMIT');
+    return id;
   } catch (erro) {
     db.exec('ROLLBACK');
     throw erro;
   }
+}
+
+// Guarda o que foi ao modelo e o texto que ele devolveu, tal e qual — também quando a triagem falha.
+// Sem isto não há como saber, mais tarde, se o modelo acertou — nem como comparar modelos ou instruções.
+export function guardarTriagem(db, varrimentoId, { modelo, entrada, resposta, erro = null }) {
+  db.prepare('INSERT INTO triagens (varrimento_id, modelo, entrada, resposta, erro) VALUES (?, ?, ?, ?, ?)').run(
+    varrimentoId,
+    modelo,
+    JSON.stringify(entrada),
+    resposta,
+    erro,
+  );
 }
