@@ -13,7 +13,9 @@ export function compararVarrimentos(anterior, atuais, conhecidos, ausencias = ne
 
   for (const a of atuais) {
     if (!conhecidos.has(a.mac)) {
-      mudancas.push({ tipo: 'novo', aparelho: a });
+      // Um telemóvel que trocou de MAC privado costuma manter o nome. É só uma pista: o nome pode repetir-se ou ser falso.
+      const mesmoNome = a.nome && [...conhecidos].find(([, nome]) => nome === a.nome)?.[0];
+      mudancas.push({ tipo: 'novo', aparelho: a, ...(mesmoNome && { mesmoNomeQue: mesmoNome }) });
       continue;
     }
     const faltas = ausencias.get(a.mac)?.faltas ?? 0;
