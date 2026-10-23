@@ -1,20 +1,29 @@
+// Quantos varrimentos seguidos sem resposta até dar um aparelho como "saiu".
+// Um telemóvel em repouso falha um ping sem ter saído de casa; três falhas já são sinal.
+export const LIMITE_AUSENCIA = 3;
+
 // Compara o varrimento atual com o anterior e devolve só o que mudou.
 // Esta lista é o que, na fase 2, vai para o modelo — não o inventário inteiro.
-export function compararVarrimentos(anterior, atuais, conhecidos) {
+//
+// `ausencias` diz, por MAC, quantos varrimentos anteriores falhou desde a última vez que foi visto
+// (ver `ausenciasPorMac` em historico.js). Assim "saiu" e "voltou" só aparecem quando a ausência foi real.
+export function compararVarrimentos(anterior, atuais, conhecidos, ausencias = new Map(), limite = LIMITE_AUSENCIA) {
   const mudancas = [];
   const vistosAgora = new Set(atuais.map((a) => a.mac));
 
   for (const a of atuais) {
-    const antes = anterior?.aparelhos.get(a.mac);
-
     if (!conhecidos.has(a.mac)) {
       mudancas.push({ tipo: 'novo', aparelho: a });
       continue;
     }
-    if (!antes) {
+    const faltas = ausencias.get(a.mac)?.faltas ?? 0;
+    if (faltas >= limite) {
       mudancas.push({ tipo: 'voltou', aparelho: a });
       continue;
     }
+    const antes = anterior?.aparelhos.get(a.mac);
+    if (!antes) continue; // falhou alguns varrimentos mas nunca chegou a "sair": não é notícia
+
     if (antes.ip !== a.ip) {
       mudancas.push({ tipo: 'mudou-ip', aparelho: a, de: antes.ip });
     }
@@ -24,8 +33,11 @@ export function compararVarrimentos(anterior, atuais, conhecidos) {
     if (fecharam.length) mudancas.push({ tipo: 'portas-fechadas', aparelho: a, portas: fecharam });
   }
 
-  for (const [mac, antes] of anterior?.aparelhos ?? []) {
-    if (!vistosAgora.has(mac)) mudancas.push({ tipo: 'desapareceu', aparelho: { mac, ip: antes.ip } });
+  // Avisa uma única vez: no varrimento em que a ausência chega ao limite.
+  for (const [mac, { faltas, ip }] of ausencias) {
+    if (!vistosAgora.has(mac) && faltas + 1 === limite) {
+      mudancas.push({ tipo: 'desapareceu', aparelho: { mac, ip } });
+    }
   }
 
   return mudancas;

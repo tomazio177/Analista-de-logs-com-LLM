@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 
-const FICHEIRO = path.join(import.meta.dirname, '..', 'data', 'sentinela.db');
+const FICHEIRO = path.join(import.meta.dirname, '..', 'data', 'analista.db');
 
 export function abrir(ficheiro = FICHEIRO) {
   mkdirSync(path.dirname(ficheiro), { recursive: true });
@@ -33,6 +33,21 @@ export function abrir(ficheiro = FICHEIRO) {
 
 export function macsConhecidos(db) {
   return new Set(db.prepare('SELECT mac FROM dispositivos').all().map((r) => r.mac));
+}
+
+// Por cada aparelho já visto nesta rede: quantos varrimentos desta rede aconteceram desde a última vez que respondeu.
+// Chamar ANTES de `guardar`, para o varrimento em curso não contar.
+export function ausenciasPorMac(db, rede) {
+  const linhas = db.prepare(`
+    SELECT d.mac, d.ultimo_ip AS ip,
+           (SELECT COUNT(*) FROM varrimentos v WHERE v.rede = ? AND v.data > d.ultimo_visto) AS faltas
+    FROM dispositivos d
+    WHERE EXISTS (
+      SELECT 1 FROM observacoes o JOIN varrimentos v ON v.id = o.varrimento_id
+      WHERE o.mac = d.mac AND v.rede = ?
+    )
+  `).all(rede, rede);
+  return new Map(linhas.map((l) => [l.mac, { faltas: l.faltas, ip: l.ip }]));
 }
 
 export function ultimoVarrimento(db, rede) {
