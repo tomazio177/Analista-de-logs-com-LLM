@@ -6,16 +6,27 @@ import { emParalelo, comTimeout } from './util.js';
 const correr = promisify(execFile);
 const WINDOWS = process.platform === 'win32';
 
-// Procura "TTL=" na resposta em vez de confiar no código de saída:
-// no Windows, "Host de destino inacessível" também sai com código 0.
+// Devolve o TTL da resposta, ou null se não houve resposta.
+// Procura "TTL=" em vez de confiar no código de saída: no Windows, "Host de destino inacessível" também sai com código 0.
 async function ping(ip) {
   const args = WINDOWS ? ['-n', '1', '-w', '700', ip] : ['-c', '1', '-W', '1', ip];
   try {
     const { stdout } = await correr('ping', args, { windowsHide: true });
-    return /ttl=/i.test(stdout);
+    const ttl = stdout.match(/ttl=(\d+)/i);
+    return ttl ? Number(ttl[1]) : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+// Cada sistema começa o TTL num valor diferente e cada router pelo caminho tira-lhe 1.
+// Numa rede de casa não há routers pelo meio, por isso o valor chega quase intacto.
+// É só uma pista: o TTL inicial pode ser alterado, e há equipamentos que fogem à regra.
+export function sistemaProvavel(ttl) {
+  if (ttl == null) return null;
+  if (ttl <= 64) return 'Linux/Android/iOS';
+  if (ttl <= 128) return 'Windows';
+  return 'equip. de rede';
 }
 
 // Lê a tabela ARP do sistema: a correspondência IP → MAC que o PC aprendeu.
@@ -43,21 +54,23 @@ async function nomeDe(ip) {
 // o PC teve de perguntar "quem tem este IP?" — e a resposta fica na tabela ARP.
 export async function descobrirAparelhos(local, hosts, aoProgredir = () => {}) {
   let feitos = 0;
-  const responderam = await emParalelo(hosts, 48, async (ip) => {
-    const vivo = await ping(ip);
+  const ttls = await emParalelo(hosts, 48, async (ip) => {
+    const ttl = await ping(ip);
     aoProgredir(++feitos, hosts.length);
-    return vivo ? ip : null;
+    return ttl;
   });
+  const ttlDe = new Map(hosts.map((ip, i) => [ip, ttls[i]]).filter(([, ttl]) => ttl != null));
 
   const arp = await tabelaArp();
   const naRede = new Set(hosts);
-  const ips = new Set(responderam.filter(Boolean));
+  const ips = new Set(ttlDe.keys());
   for (const ip of arp.keys()) if (naRede.has(ip)) ips.add(ip);
 
   const aparelhos = [...ips].map((ip) => ({
     ip,
     mac: ip === local.ip ? local.mac : arp.get(ip) ?? `sem-mac:${ip}`,
-    respondeuPing: responderam.includes(ip),
+    respondeuPing: ttlDe.has(ip),
+    ttl: ttlDe.get(ip) ?? null,
     proprio: ip === local.ip,
   }));
 
