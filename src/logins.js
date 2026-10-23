@@ -37,18 +37,25 @@ export function interpretar({ id, quando, campos }) {
   const tipo = Number(campos.LogonType);
   const ip = limpar(campos.IpAddress)?.replace(/^::ffff:/i, '') ?? null;
 
-  return {
+  return completar({
     id,
     quando,
     utilizador: limpar(campos.TargetUserName),
     tipo,
-    tipoTexto: TIPOS[tipo] ?? `tipo ${tipo}`,
-    pelaRede: PELA_REDE.has(tipo),
     codigo,
-    motivo: MOTIVOS[codigo] ?? `código ${codigo}`,
     ip: ip && !LOCAL.has(ip) ? ip : null,
     estacao: limpar(campos.WorkstationName),
     processo: limpar(campos.ProcessName),
+  });
+}
+
+// Acrescenta os campos legíveis. Serve tanto para eventos acabados de ler como para linhas da base de dados.
+export function completar(l) {
+  return {
+    ...l,
+    tipoTexto: TIPOS[l.tipo] ?? `tipo ${l.tipo}`,
+    pelaRede: PELA_REDE.has(l.tipo),
+    motivo: MOTIVOS[l.codigo] ?? `código ${l.codigo}`,
   };
 }
 

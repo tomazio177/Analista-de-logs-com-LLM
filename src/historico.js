@@ -127,3 +127,22 @@ export function aparelhosPorIp(db) {
   const linhas = db.prepare('SELECT mac, nome, ultimo_ip FROM dispositivos ORDER BY ultimo_visto').all();
   return new Map(linhas.map((l) => [l.ultimo_ip, { mac: l.mac, nome: l.nome }]));
 }
+
+// O último varrimento com os dados de cada aparelho, para a triagem.
+export function inventarioAtual(db) {
+  const v = db.prepare('SELECT id, data, rede FROM varrimentos ORDER BY id DESC LIMIT 1').get();
+  if (!v) return null;
+  const aparelhos = db.prepare(`
+    SELECT o.ip, o.mac, o.portas, d.nome, d.primeiro_visto
+    FROM observacoes o JOIN dispositivos d ON d.mac = o.mac
+    WHERE o.varrimento_id = ?
+  `).all(v.id).map((a) => ({ ...a, portas: JSON.parse(a.portas) }));
+  return { ...v, aparelhos };
+}
+
+export function loginsDesde(db, desde) {
+  return db.prepare(`
+    SELECT record_id AS id, quando, utilizador, tipo, codigo, ip, estacao, processo
+    FROM logins_falhados WHERE quando >= ? ORDER BY quando
+  `).all(desde);
+}
