@@ -2,7 +2,7 @@ import { interfaceLocal, enderecosDaRede } from './rede.js';
 import { descobrirAparelhos } from './descobrir.js';
 import { PORTAS, portasAbertas } from './portas.js';
 import { emParalelo } from './util.js';
-import { abrir, guardar, macsConhecidos, ultimoVarrimento } from './historico.js';
+import { abrir, guardar, macsConhecidos, ultimoVarrimento, ausenciasPorMac } from './historico.js';
 import { compararVarrimentos } from './comparar.js';
 
 const local = interfaceLocal();
@@ -25,7 +25,7 @@ mostrarInventario(aparelhos);
 const db = abrir();
 const anterior = ultimoVarrimento(db, cidr);
 const conhecidos = macsConhecidos(db);
-const mudancas = compararVarrimentos(anterior, aparelhos, conhecidos);
+const mudancas = compararVarrimentos(anterior, aparelhos, conhecidos, ausenciasPorMac(db, cidr));
 guardar(db, cidr, aparelhos);
 
 if (!anterior) {
@@ -55,7 +55,7 @@ function mostrarMudancas(lista, desde) {
 
   const descrever = {
     novo: (m) => `+ NOVO          ${m.aparelho.ip}  ${m.aparelho.mac}  nunca visto antes`,
-    voltou: (m) => `↺ VOLTOU        ${m.aparelho.ip}  ${m.aparelho.mac}`,
+    voltou: (m) => `↺ VOLTOU        ${m.aparelho.ip}  ${m.aparelho.mac}  (tinha desaparecido)`,
     desapareceu: (m) => `− SAIU          ${m.aparelho.ip}  ${m.aparelho.mac}`,
     'mudou-ip': (m) => `~ IP MUDOU      ${m.aparelho.mac}  ${m.de} → ${m.aparelho.ip}`,
     'portas-abertas': (m) => `! PORTA ABRIU   ${m.aparelho.ip}  ${m.portas.map((p) => `${p} ${PORTAS[p]}`).join(', ')}`,
