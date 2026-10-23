@@ -7,7 +7,8 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "scan": "node --disable-warning=ExperimentalWarning src/index.js"
+    "scan": "node --disable-warning=ExperimentalWarning src/index.js",
+    "logs": "node --disable-warning=ExperimentalWarning src/logs.js"
   },
   "license": "MIT"
 }

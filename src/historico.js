@@ -27,6 +27,17 @@ export function abrir(ficheiro = FICHEIRO) {
       portas         TEXT NOT NULL,
       PRIMARY KEY (varrimento_id, mac)
     );
+    CREATE TABLE IF NOT EXISTS logins_falhados (
+      record_id   INTEGER NOT NULL,
+      quando      TEXT NOT NULL,
+      utilizador  TEXT,
+      tipo        INTEGER,
+      codigo      TEXT,
+      ip          TEXT,
+      estacao     TEXT,
+      processo    TEXT,
+      PRIMARY KEY (record_id, quando)
+    );
   `);
   return db;
 }
@@ -86,4 +97,33 @@ export function guardar(db, rede, aparelhos, data = new Date().toISOString()) {
     db.exec('ROLLBACK');
     throw erro;
   }
+}
+
+// Guarda os logins falhados e devolve os ids dos que ainda não estavam guardados.
+// A chave inclui a data porque o Windows pode reutilizar números de registo se o log for limpo.
+export function guardarLogins(db, logins) {
+  const inserir = db.prepare(`
+    INSERT OR IGNORE INTO logins_falhados (record_id, quando, utilizador, tipo, codigo, ip, estacao, processo)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const novos = new Set();
+  db.exec('BEGIN');
+  try {
+    for (const l of logins) {
+      const { changes } = inserir.run(l.id, l.quando, l.utilizador, l.tipo, l.codigo, l.ip, l.estacao, l.processo);
+      if (changes) novos.add(l.id);
+    }
+    db.exec('COMMIT');
+  } catch (erro) {
+    db.exec('ROLLBACK');
+    throw erro;
+  }
+  return novos;
+}
+
+// IP → aparelho que o teve da última vez que foi visto num varrimento. Serve para pôr nome às origens dos logins.
+// Os IPs mudam com o tempo, por isso é uma pista: o mais recente ganha.
+export function aparelhosPorIp(db) {
+  const linhas = db.prepare('SELECT mac, nome, ultimo_ip FROM dispositivos ORDER BY ultimo_visto').all();
+  return new Map(linhas.map((l) => [l.ultimo_ip, { mac: l.mac, nome: l.nome }]));
 }
