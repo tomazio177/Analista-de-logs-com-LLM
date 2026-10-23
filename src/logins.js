@@ -71,7 +71,7 @@ export const RITMO_DE_MAQUINA = 2;
 function intervaloMediano(janela) {
   const intervalos = janela.slice(1).map((l, i) => (Date.parse(l.quando) - Date.parse(janela[i].quando)) / 1000);
   const ordenados = intervalos.toSorted((a, b) => a - b);
-  return ordenados[Math.floor(ordenados.length / 2)];
+  return Math.round(ordenados[Math.floor(ordenados.length / 2)] * 10) / 10;
 }
 const agrupar = (lista, chave) => Map.groupBy(lista, chave);
 
