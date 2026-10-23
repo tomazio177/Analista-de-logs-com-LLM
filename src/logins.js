@@ -56,6 +56,16 @@ export function interpretar({ id, quando, campos }) {
 export const RAJADA = { tentativas: 5, minutos: 10 };
 
 const origemDe = (l) => l.ip ?? 'este PC';
+export const nomeDoProcesso = (caminho) => caminho?.split('\\').pop() ?? null;
+
+// Uma pessoa a errar a palavra-passe leva vários segundos entre tentativas; um programa a repetir uma credencial, menos de 2.
+export const RITMO_DE_MAQUINA = 2;
+
+function intervaloMediano(janela) {
+  const intervalos = janela.slice(1).map((l, i) => (Date.parse(l.quando) - Date.parse(janela[i].quando)) / 1000);
+  const ordenados = intervalos.toSorted((a, b) => a - b);
+  return ordenados[Math.floor(ordenados.length / 2)];
+}
 const agrupar = (lista, chave) => Map.groupBy(lista, chave);
 
 export function alertas(logins) {
@@ -69,9 +79,20 @@ export function alertas(logins) {
     for (let fim = 0; fim < ordenada.length; fim++) {
       while (Date.parse(ordenada[fim].quando) - Date.parse(ordenada[inicio].quando) > RAJADA.minutos * 60_000) inicio++;
       const n = fim - inicio + 1;
-      if (n >= RAJADA.tentativas && n > (pior?.n ?? 0)) pior = { n, de: ordenada[inicio].quando, ate: ordenada[fim].quando };
+      if (n >= RAJADA.tentativas && n > (pior?.n ?? 0)) pior = { n, inicio, fim };
     }
-    if (pior) resultado.push({ tipo: 'rajada', origem, ...pior });
+    if (pior) {
+      const janela = ordenada.slice(pior.inicio, pior.fim + 1);
+      resultado.push({
+        tipo: 'rajada',
+        origem,
+        n: pior.n,
+        de: janela[0].quando,
+        ate: janela.at(-1).quando,
+        segundosEntreTentativas: intervaloMediano(janela),
+        processos: [...new Set(janela.map((l) => nomeDoProcesso(l.processo) ?? 'desconhecido'))],
+      });
+    }
   }
 
   // Tentativas vindas de outro aparelho da rede: é a ligação com a fase 1 (porta 445 aberta → alguém tentou usá-la?).
