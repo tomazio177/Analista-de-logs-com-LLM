@@ -1,5 +1,5 @@
 import { lerLoginsFalhados, SEM_PERMISSAO } from './eventos.js';
-import { interpretar, alertas, RAJADA } from './logins.js';
+import { interpretar, alertas, nomeDoProcesso, RAJADA, RITMO_DE_MAQUINA } from './logins.js';
 import { abrir, guardarLogins, aparelhosPorIp } from './historico.js';
 
 const dias = Number(process.argv[2] ?? 7);
@@ -47,12 +47,13 @@ if (!logins.length) {
 }
 
 const MAXIMO = 30;
-const colunas = (...c) => c[0].padEnd(2) + c[1].padEnd(18) + c[2].padEnd(20) + c[3].padEnd(24) + c[4].padEnd(34) + c[5];
-console.log(colunas('', 'QUANDO', 'UTILIZADOR', 'TIPO', 'ORIGEM', 'MOTIVO'));
-console.log('─'.repeat(120));
+const colunas = (...c) => c[0].padEnd(2) + c[1].padEnd(18) + c[2].padEnd(16) + c[3].padEnd(22) + c[4].padEnd(30) + c[5].padEnd(22) + c[6];
+console.log(colunas('', 'QUANDO', 'UTILIZADOR', 'TIPO', 'ORIGEM', 'PROCESSO', 'MOTIVO'));
+console.log('─'.repeat(130));
 for (const l of logins.slice(0, MAXIMO)) {
   const origem = descreverOrigem(l.ip ?? 'este PC');
-  console.log(colunas(novos.has(l.id) ? '*' : '', quando(l.quando), (l.utilizador ?? '—').slice(0, 19), l.tipoTexto.slice(0, 23), origem.slice(0, 33), l.motivo));
+  const processo = nomeDoProcesso(l.processo) ?? '—';
+  console.log(colunas(novos.has(l.id) ? '*' : '', quando(l.quando), (l.utilizador ?? '—').slice(0, 15), l.tipoTexto.slice(0, 21), origem.slice(0, 29), processo.slice(0, 21), l.motivo));
 }
 if (logins.length > MAXIMO) console.log(`  … e mais ${logins.length - MAXIMO} mais antigos.`);
 if (novos.size) console.log('\n* = novo desde a última leitura');
@@ -61,7 +62,13 @@ const lista = alertas(logins);
 const descrever = {
   rajada: (a) => {
     const minutos = Math.max(1, Math.round((Date.parse(a.ate) - Date.parse(a.de)) / 60_000));
-    return `! RAJADA        ${a.n} tentativas em ${minutos} min, a partir de ${descreverOrigem(a.origem)} (${quando(a.de)})`;
+    const ritmo = a.segundosEntreTentativas <= RITMO_DE_MAQUINA
+      ? `uma a cada ${a.segundosEntreTentativas} s: ritmo de programa, não de pessoa`
+      : `uma a cada ${Math.round(a.segundosEntreTentativas)} s`;
+    return (
+      `! RAJADA        ${a.n} tentativas em ${minutos} min, a partir de ${descreverOrigem(a.origem)} (${quando(a.de)})\n` +
+      `                ${ritmo}; pedidas por: ${a.processos.join(', ')}`
+    );
   },
   'pela-rede': (a) => `! PELA REDE     ${a.n} tentativas vindas de ${descreverOrigem(a.origem)}, com: ${a.utilizadores.join(', ')}`,
   'utilizador-inexistente': (a) => `· NOMES FALSOS  ${a.n} tentativas com utilizadores que não existem neste PC: ${a.utilizadores.join(', ')}`,
