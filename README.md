@@ -25,11 +25,11 @@ Precisa de Node 22.13 ou mais recente. O primeiro varrimento fica guardado como 
 
 Estas são as fontes de falsos positivos e falsos negativos — e a parte mais interessante do projeto.
 
-- **MACs aleatórios.** iPhones e Android usam um MAC privado por rede. Normalmente é estável, mas pode rodar e aparecer como "aparelho novo".
+- **MACs aleatórios.** iPhones e Android usam um MAC privado por rede. Normalmente é estável, mas pode rodar e aparecer como "aparelho novo". O programa reconhece estes MACs (bit "administrado localmente") e avisa no próprio alerta, mas não consegue saber de que aparelho se trata.
 - **Aparelhos a dormir.** Telemóveis em repouso e aparelhos IoT com Wi-Fi intermitente podem não responder e aparecer como "saiu".
 - **Connect scan é ruidoso e lento.** Um scan SYN (como o do nmap) seria mais rápido, mas precisa de pacotes em bruto e privilégios de administrador.
 - **Só 18 portas.** Um serviço numa porta fora da lista passa despercebido.
-- **Nomes.** O DNS inverso raramente funciona numa rede doméstica; a maioria dos aparelhos aparece sem nome.
+- **Nomes.** Dependem do router. Em alguns routers domésticos o DNS inverso devolve o nome de cada aparelho (`.lan`); noutros routers a maioria aparece sem nome.
 
 ## Roteiro
 

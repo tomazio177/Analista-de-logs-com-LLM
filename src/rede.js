@@ -31,3 +31,8 @@ export function enderecosDaRede({ ip, mascara }) {
 
   return { cidr: `${paraIp(rede)}/${bits}`, hosts };
 }
+
+// Telemóveis e alguns PCs inventam um MAC por rede (o "MAC privado"), que pode mudar sozinho.
+// Esses MACs têm ligado o bit "administrado localmente" (o 2.º bit menos significativo do 1.º octeto):
+// na prática, o 2.º carácter é 2, 6, a ou e. Um fabricante nunca grava um MAC destes de fábrica.
+export const macPrivado = (mac) => /^[0-9a-f]{2}:/.test(mac) && (parseInt(mac.slice(0, 2), 16) & 0b10) !== 0;
