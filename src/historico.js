@@ -31,8 +31,9 @@ export function abrir(ficheiro = FICHEIRO) {
   return db;
 }
 
+// MAC → último nome conhecido (ou null) de todos os aparelhos já vistos.
 export function macsConhecidos(db) {
-  return new Set(db.prepare('SELECT mac FROM dispositivos').all().map((r) => r.mac));
+  return new Map(db.prepare('SELECT mac, nome FROM dispositivos').all().map((r) => [r.mac, r.nome]));
 }
 
 // Por cada aparelho já visto nesta rede: quantos varrimentos desta rede aconteceram desde a última vez que respondeu.

@@ -54,15 +54,19 @@ function mostrarMudancas(lista, desde) {
   }
 
   const descrever = {
-    novo: (m) =>
-      `+ NOVO          ${m.aparelho.ip}  ${m.aparelho.mac}  ` +
-      (macPrivado(m.aparelho.mac) ? 'MAC privado: pode ser um telemóvel já conhecido que mudou de MAC' : 'nunca visto antes'),
+    novo: (m) => `+ NOVO          ${m.aparelho.ip}  ${m.aparelho.mac}  ${porqueNovo(m)}`,
     voltou: (m) => `↺ VOLTOU        ${m.aparelho.ip}  ${m.aparelho.mac}  (tinha desaparecido)`,
     desapareceu: (m) => `− SAIU          ${m.aparelho.ip}  ${m.aparelho.mac}`,
     'mudou-ip': (m) => `~ IP MUDOU      ${m.aparelho.mac}  ${m.de} → ${m.aparelho.ip}`,
     'portas-abertas': (m) => `! PORTA ABRIU   ${m.aparelho.ip}  ${m.portas.map((p) => `${p} ${PORTAS[p]}`).join(', ')}`,
     'portas-fechadas': (m) => `· PORTA FECHOU  ${m.aparelho.ip}  ${m.portas.map((p) => `${p} ${PORTAS[p]}`).join(', ')}`,
   };
+
+  function porqueNovo(m) {
+    if (m.mesmoNomeQue) return `mesmo nome que ${m.mesmoNomeQue}: provavelmente o mesmo aparelho com MAC novo`;
+    if (macPrivado(m.aparelho.mac)) return `${m.aparelho.nome ?? 'sem nome'} — MAC privado, provavelmente telemóvel ou tablet`;
+    return `${m.aparelho.nome ?? 'sem nome'} — nunca visto antes`;
+  }
 
   console.log(`\nMudanças desde o último varrimento (${quando}):`);
   for (const m of lista) console.log('  ' + descrever[m.tipo](m));
