@@ -29,6 +29,7 @@ Estas são as fontes de falsos positivos e falsos negativos — e a parte mais i
 - **Aparelhos a dormir.** Telemóveis em repouso e aparelhos IoT com Wi-Fi intermitente podem não responder e aparecer como "saiu".
 - **Connect scan é ruidoso e lento.** Um scan SYN (como o do nmap) seria mais rápido, mas precisa de pacotes em bruto e privilégios de administrador.
 - **Só 18 portas.** Um serviço numa porta fora da lista passa despercebido.
+- **Sistema pelo TTL.** É uma adivinha: cerca de 64 costuma ser Linux, Android ou iPhone; cerca de 128, Windows; cerca de 255, routers e afins. Não distingue Android de iPhone, e aparelhos que só aparecem pela tabela ARP ficam sem TTL.
 - **Nomes.** Dependem do router. Em alguns routers domésticos o DNS inverso devolve o nome de cada aparelho (`.lan`); noutros routers a maioria aparece sem nome.
 
 ## Roteiro

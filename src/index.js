@@ -1,5 +1,5 @@
 import { interfaceLocal, enderecosDaRede, macPrivado } from './rede.js';
-import { descobrirAparelhos } from './descobrir.js';
+import { descobrirAparelhos, sistemaProvavel } from './descobrir.js';
 import { PORTAS, portasAbertas } from './portas.js';
 import { emParalelo } from './util.js';
 import { abrir, guardar, macsConhecidos, ultimoVarrimento, ausenciasPorMac } from './historico.js';
@@ -36,13 +36,14 @@ if (!anterior) {
 }
 
 function mostrarInventario(lista) {
-  const colunas = (...c) => c[0].padEnd(16) + c[1].padEnd(20) + c[2].padEnd(28) + c[3];
-  console.log(colunas('IP', 'MAC', 'Nome', 'Portas abertas'));
-  console.log('─'.repeat(90));
+  const colunas = (...c) => c[0].padEnd(16) + c[1].padEnd(20) + c[2].padEnd(28) + c[3].padEnd(26) + c[4];
+  console.log(colunas('IP', 'MAC', 'Nome', 'Sistema (pelo TTL)', 'Portas abertas'));
+  console.log('─'.repeat(116));
   for (const a of lista) {
     const nome = (a.proprio ? '(este PC) ' : '') + (a.nome ?? '—');
     const portas = a.portas.map((p) => `${p} ${PORTAS[p]}`).join(', ') || '—';
-    console.log(colunas(a.ip, a.mac, nome.slice(0, 27), portas));
+    const sistema = a.ttl == null ? '— (não respondeu ao ping)' : `${sistemaProvavel(a.ttl)} (${a.ttl})`;
+    console.log(colunas(a.ip, a.mac, nome.slice(0, 27), sistema, portas));
   }
 }
 
