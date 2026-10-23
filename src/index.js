@@ -1,4 +1,4 @@
-import { interfaceLocal, enderecosDaRede } from './rede.js';
+import { interfaceLocal, enderecosDaRede, macPrivado } from './rede.js';
 import { descobrirAparelhos } from './descobrir.js';
 import { PORTAS, portasAbertas } from './portas.js';
 import { emParalelo } from './util.js';
@@ -54,7 +54,9 @@ function mostrarMudancas(lista, desde) {
   }
 
   const descrever = {
-    novo: (m) => `+ NOVO          ${m.aparelho.ip}  ${m.aparelho.mac}  nunca visto antes`,
+    novo: (m) =>
+      `+ NOVO          ${m.aparelho.ip}  ${m.aparelho.mac}  ` +
+      (macPrivado(m.aparelho.mac) ? 'MAC privado: pode ser um telemóvel já conhecido que mudou de MAC' : 'nunca visto antes'),
     voltou: (m) => `↺ VOLTOU        ${m.aparelho.ip}  ${m.aparelho.mac}  (tinha desaparecido)`,
     desapareceu: (m) => `− SAIU          ${m.aparelho.ip}  ${m.aparelho.mac}`,
     'mudou-ip': (m) => `~ IP MUDOU      ${m.aparelho.mac}  ${m.de} → ${m.aparelho.ip}`,
