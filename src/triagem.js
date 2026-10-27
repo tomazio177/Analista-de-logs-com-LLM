@@ -163,8 +163,9 @@ export function recolher(db, agora = new Date()) {
 
 
 export class ErroTriagem extends Error {
-  constructor(mensagem, bruto = null) {
+  constructor(codigo, mensagem, bruto = null) {
     super(mensagem);
+    this.codigo = codigo; // estável, para a app decidir o que mostrar: recusa, resposta-cortada, resposta-invalida
     this.bruto = bruto; // o texto do modelo, quando o houve, para ficar guardado com o erro
   }
 }
@@ -188,22 +189,22 @@ export async function triar(dados, cliente) {
 
   const texto = resposta.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
   if (resposta.stop_reason === 'refusal') {
-    throw new ErroTriagem(`O modelo recusou fazer a triagem (${resposta.stop_details?.category ?? 'sem categoria'}).`);
+    throw new ErroTriagem('recusa', `O modelo recusou fazer a triagem (${resposta.stop_details?.category ?? 'sem categoria'}).`);
   }
   if (resposta.stop_reason === 'max_tokens') {
-    throw new ErroTriagem('A resposta foi cortada a meio (limite de tokens). Não dá para confiar nela.', texto);
+    throw new ErroTriagem('resposta-cortada', 'A resposta foi cortada a meio (limite de tokens). Não dá para confiar nela.', texto);
   }
-  if (!texto) throw new ErroTriagem('A resposta não trouxe texto.');
+  if (!texto) throw new ErroTriagem('resposta-invalida', 'A resposta não trouxe texto.');
 
   let json;
   try {
     json = JSON.parse(texto);
   } catch {
-    throw new ErroTriagem('A resposta não é JSON válido.', texto);
+    throw new ErroTriagem('resposta-invalida', 'A resposta não é JSON válido.', texto);
   }
   const validado = Triagem.safeParse(json);
   if (!validado.success) {
-    throw new ErroTriagem(`A resposta do modelo não tem o formato esperado:\n${z.prettifyError(validado.error)}`, texto);
+    throw new ErroTriagem('resposta-invalida', `A resposta do modelo não tem o formato esperado:\n${z.prettifyError(validado.error)}`, texto);
   }
   return { triagem: validado.data, modelo: resposta.model, bruto: texto, uso: resposta.usage };
 }

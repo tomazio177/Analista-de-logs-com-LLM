@@ -12,6 +12,7 @@
     "triagem": "node --disable-warning=ExperimentalWarning src/triar.js",
     "responder": "node --disable-warning=ExperimentalWarning src/notas.js",
     "notas": "node --disable-warning=ExperimentalWarning src/notas.js --listar",
+    "vigiar": "node --disable-warning=ExperimentalWarning src/vigiar.js",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\""
   },
   "license": "MIT",

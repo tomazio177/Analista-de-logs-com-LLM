@@ -2,7 +2,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 
-const FICHEIRO = path.join(import.meta.dirname, '..', 'data', 'analista.db');
+// ANALISTA_DB troca a base de dados (os testes usam uma temporária; a app pode querer outra pasta).
+const FICHEIRO = process.env.ANALISTA_DB ?? path.join(import.meta.dirname, '..', 'data', 'analista.db');
 
 export function abrir(ficheiro = FICHEIRO) {
   mkdirSync(path.dirname(ficheiro), { recursive: true });
@@ -47,7 +48,8 @@ export function abrir(ficheiro = FICHEIRO) {
       alvo_tipo  TEXT NOT NULL,
       alvo       TEXT,
       pergunta   TEXT,
-      texto      TEXT NOT NULL
+      texto      TEXT NOT NULL,
+      triagem_id INTEGER REFERENCES triagens(id)
     );
     CREATE TABLE IF NOT EXISTS leituras_logs (
       data         TEXT NOT NULL,
@@ -72,6 +74,10 @@ export function abrir(ficheiro = FICHEIRO) {
   // E antes de as triagens guardarem a que aparelho ou alerta se refere cada id (para as respostas do dono).
   if (!db.prepare('PRAGMA table_info(triagens)').all().some((c) => c.name === 'ancoras')) {
     db.exec('ALTER TABLE triagens ADD COLUMN ancoras TEXT');
+  }
+  // E antes de cada nota guardar a que triagem respondeu (para saber que perguntas já têm resposta).
+  if (!db.prepare('PRAGMA table_info(notas)').all().some((c) => c.name === 'triagem_id')) {
+    db.exec('ALTER TABLE notas ADD COLUMN triagem_id INTEGER REFERENCES triagens(id)');
   }
   // E antes de a rede ser identificada pelo MAC do router.
   if (!db.prepare('PRAGMA table_info(varrimentos)').all().some((c) => c.name === 'router_mac')) {
@@ -226,8 +232,9 @@ export function coberturaDosLogs(db, desde) {
 // Cada triagem fica guardada com o que foi enviado e o texto devolvido, tal e qual, mesmo quando falha:
 // dá para ver mais tarde o que o modelo disse e com que dados.
 export function guardarTriagem(db, { varrimentoId, modelo, entrada, resposta, erro, ancoras = null }, data = new Date().toISOString()) {
-  db.prepare('INSERT INTO triagens (data, varrimento_id, modelo, entrada, resposta, erro, ancoras) VALUES (?, ?, ?, ?, ?, ?, ?)')
+  const { lastInsertRowid } = db.prepare('INSERT INTO triagens (data, varrimento_id, modelo, entrada, resposta, erro, ancoras) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(data, varrimentoId, modelo, JSON.stringify(entrada), resposta, erro, ancoras && JSON.stringify(ancoras));
+  return Number(lastInsertRowid);
 }
 
 export const ultimaTriagemValida = (db) =>
@@ -236,12 +243,13 @@ export const ultimaTriagemValida = (db) =>
 // As respostas do dono às perguntas da triagem. Cada nota fica presa àquilo de que fala:
 // um aparelho (pelo MAC), um alerta concreto (tipo, origem e hora de início) ou nada em particular ("geral").
 // Assim "a rajada de 22/10 fui eu" não serve para desculpar uma rajada nova.
-export function guardarNota(db, { alvoTipo, alvo = null, pergunta = null, texto }, data = new Date().toISOString()) {
-  return db.prepare('INSERT INTO notas (data, alvo_tipo, alvo, pergunta, texto) VALUES (?, ?, ?, ?, ?)')
-    .run(data, alvoTipo, alvo, pergunta, texto).lastInsertRowid;
+export function guardarNota(db, { alvoTipo, alvo = null, pergunta = null, texto, triagemId = null }, data = new Date().toISOString()) {
+  const { lastInsertRowid } = db.prepare('INSERT INTO notas (data, alvo_tipo, alvo, pergunta, texto, triagem_id) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(data, alvoTipo, alvo, pergunta, texto, triagemId);
+  return Number(lastInsertRowid);
 }
 
-export const listarNotas = (db) => db.prepare('SELECT id, data, alvo_tipo, alvo, pergunta, texto FROM notas ORDER BY id').all();
+export const listarNotas = (db) => db.prepare('SELECT id, data, alvo_tipo, alvo, pergunta, texto, triagem_id FROM notas ORDER BY id').all();
 
 export const apagarNota = (db, id) => db.prepare('DELETE FROM notas WHERE id = ?').run(id).changes > 0;
 

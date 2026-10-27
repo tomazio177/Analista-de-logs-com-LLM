@@ -128,3 +128,13 @@ test('as notas do dono guardam-se presas ao que falam e podem ser apagadas', () 
     assert.equal(apagarNota(db, portatil), false);
     assert.deepEqual(listarNotas(db).map((n) => n.texto), ['Fui eu.', 'Ninguém mais usa este PC.']);
   }));
+
+test('uma tabela notas de antes da ligação à triagem ganha a coluna triagem_id', () =>
+  comBaseTemporaria((abrirBase, ficheiro) => {
+    const antiga = new DatabaseSync(ficheiro);
+    antiga.exec(`CREATE TABLE notas (id INTEGER PRIMARY KEY, data TEXT NOT NULL, alvo_tipo TEXT NOT NULL, alvo TEXT, pergunta TEXT, texto TEXT NOT NULL);
+      INSERT INTO notas VALUES (1, '2026-10-27T18:00:00Z', 'geral', NULL, NULL, 'Fui eu.');`);
+    antiga.close();
+    const db = abrirBase();
+    assert.deepEqual(listarNotas(db).map((n) => [n.texto, n.triagem_id]), [['Fui eu.', null]]);
+  }));
