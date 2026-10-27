@@ -27,6 +27,11 @@ export function abrir(ficheiro = FICHEIRO) {
       portas         TEXT NOT NULL,
       PRIMARY KEY (varrimento_id, mac)
     );
+    CREATE TABLE IF NOT EXISTS redes_aprovadas (
+      router_mac   TEXT PRIMARY KEY,
+      rede         TEXT NOT NULL,
+      aprovada_em  TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS leituras_logs (
       data         TEXT NOT NULL,
       mais_antigo  TEXT
@@ -47,6 +52,10 @@ export function abrir(ficheiro = FICHEIRO) {
   if (!db.prepare('PRAGMA table_info(observacoes)').all().some((c) => c.name === 'proprio')) {
     db.exec('ALTER TABLE observacoes ADD COLUMN proprio INTEGER NOT NULL DEFAULT 0');
   }
+  // E antes de a rede ser identificada pelo MAC do router.
+  if (!db.prepare('PRAGMA table_info(varrimentos)').all().some((c) => c.name === 'router_mac')) {
+    db.exec('ALTER TABLE varrimentos ADD COLUMN router_mac TEXT');
+  }
   return db;
 }
 
@@ -55,23 +64,39 @@ export function macsConhecidos(db) {
   return new Map(db.prepare('SELECT mac, nome FROM dispositivos').all().map((r) => [r.mac, r.nome]));
 }
 
+// Uma rede é o intervalo de endereços mais o MAC do router: muitas casas usam 192.168.1.0/24,
+// e só o intervalo misturaria o histórico de casas diferentes. Os varrimentos de antes desta mudança
+// não têm router guardado e contam como da rede com o mesmo intervalo.
+const DA_REDE = '(v.rede = :cidr AND (v.router_mac = :router OR v.router_mac IS NULL))';
+
+export const redeAprovada = (db, routerMac) =>
+  db.prepare('SELECT rede, aprovada_em FROM redes_aprovadas WHERE router_mac = ?').get(routerMac);
+
+export function aprovarRede(db, routerMac, cidr) {
+  db.prepare('INSERT OR REPLACE INTO redes_aprovadas (router_mac, rede, aprovada_em) VALUES (?, ?, ?)')
+    .run(routerMac, cidr, new Date().toISOString());
+}
+
+export const contarVarrimentos = (db, rede) =>
+  db.prepare(`SELECT COUNT(*) AS n, MIN(v.data) AS primeiro FROM varrimentos v WHERE ${DA_REDE}`).get(rede);
+
 // Por cada aparelho já visto nesta rede: quantos varrimentos desta rede aconteceram desde a última vez que respondeu.
 // Chamar ANTES de `guardar`, para o varrimento em curso não contar.
 export function ausenciasPorMac(db, rede) {
   const linhas = db.prepare(`
     SELECT d.mac, d.ultimo_ip AS ip,
-           (SELECT COUNT(*) FROM varrimentos v WHERE v.rede = ? AND v.data > d.ultimo_visto) AS faltas
+           (SELECT COUNT(*) FROM varrimentos v WHERE ${DA_REDE} AND v.data > d.ultimo_visto) AS faltas
     FROM dispositivos d
     WHERE EXISTS (
       SELECT 1 FROM observacoes o JOIN varrimentos v ON v.id = o.varrimento_id
-      WHERE o.mac = d.mac AND v.rede = ?
+      WHERE o.mac = d.mac AND ${DA_REDE}
     )
-  `).all(rede, rede);
+  `).all(rede);
   return new Map(linhas.map((l) => [l.mac, { faltas: l.faltas, ip: l.ip }]));
 }
 
 export function ultimoVarrimento(db, rede) {
-  const v = db.prepare('SELECT id, data FROM varrimentos WHERE rede = ? ORDER BY id DESC LIMIT 1').get(rede);
+  const v = db.prepare(`SELECT id, data FROM varrimentos v WHERE ${DA_REDE} ORDER BY id DESC LIMIT 1`).get(rede);
   if (!v) return null;
 
   const aparelhos = new Map();
@@ -82,7 +107,7 @@ export function ultimoVarrimento(db, rede) {
 }
 
 export function guardar(db, rede, aparelhos, data = new Date().toISOString()) {
-  const novoVarrimento = db.prepare('INSERT INTO varrimentos (data, rede) VALUES (?, ?)');
+  const novoVarrimento = db.prepare('INSERT INTO varrimentos (data, rede, router_mac) VALUES (?, ?, ?)');
   const observacao = db.prepare('INSERT INTO observacoes (varrimento_id, mac, ip, portas, proprio) VALUES (?, ?, ?, ?, ?)');
   const dispositivo = db.prepare(`
     INSERT INTO dispositivos (mac, primeiro_visto, ultimo_visto, ultimo_ip, nome)
@@ -95,7 +120,7 @@ export function guardar(db, rede, aparelhos, data = new Date().toISOString()) {
 
   db.exec('BEGIN');
   try {
-    const { lastInsertRowid: id } = novoVarrimento.run(data, rede);
+    const { lastInsertRowid: id } = novoVarrimento.run(data, rede.cidr, rede.router);
     for (const a of aparelhos) {
       observacao.run(id, a.mac, a.ip, JSON.stringify(a.portas), a.proprio ? 1 : 0);
       dispositivo.run(a.mac, data, data, a.ip, a.nome);
@@ -138,7 +163,7 @@ export function aparelhosPorIp(db) {
 
 // O último varrimento com os dados de cada aparelho, para a triagem.
 export function inventarioAtual(db) {
-  const v = db.prepare('SELECT id, data, rede FROM varrimentos ORDER BY id DESC LIMIT 1').get();
+  const v = db.prepare('SELECT id, data, rede, router_mac FROM varrimentos ORDER BY id DESC LIMIT 1').get();
   if (!v) return null;
   const aparelhos = db.prepare(`
     SELECT o.ip, o.mac, o.portas, o.proprio, d.nome, d.primeiro_visto

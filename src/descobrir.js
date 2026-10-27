@@ -44,6 +44,12 @@ export async function tabelaArp() {
   return tabela;
 }
 
+// O MAC de um só aparelho (o router): o ping garante que ele está na tabela ARP.
+export async function macDe(ip) {
+  await ping(ip);
+  return (await tabelaArp()).get(ip) ?? null;
+}
+
 async function nomeDe(ip) {
   const nomes = await comTimeout(dns.reverse(ip), 1500, []);
   return nomes[0] ?? null;

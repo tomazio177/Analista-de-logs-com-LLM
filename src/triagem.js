@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
-import { abrir, inventarioAtual, loginsDesde, ausenciasPorMac, coberturaDosLogs } from './historico.js';
+import { abrir, inventarioAtual, loginsDesde, ausenciasPorMac, coberturaDosLogs, contarVarrimentos } from './historico.js';
 import { macPrivado } from './rede.js';
 import { PORTAS } from './portas.js';
 import { completar, alertas, nomeDoProcesso, RITMO_DE_MAQUINA } from './logins.js';
@@ -117,10 +117,11 @@ function recolher(db) {
 
   const desde = new Date(Date.now() - DIAS * 86_400_000).toISOString();
   const logins = loginsDesde(db, desde).map(completar);
-  const ausentes = [...ausenciasPorMac(db, inventario.rede)].filter(([, a]) => a.faltas >= LIMITE_AUSENCIA);
+  const rede = { cidr: inventario.rede, router: inventario.router_mac };
+  const ausentes = [...ausenciasPorMac(db, rede)].filter(([, a]) => a.faltas >= LIMITE_AUSENCIA);
 
   const cobertura = coberturaDosLogs(db, desde);
-  const historico = db.prepare('SELECT COUNT(*) AS n, MIN(data) AS primeiro FROM varrimentos WHERE rede = ?').get(inventario.rede);
+  const historico = contarVarrimentos(db, rede);
 
   return {
     agora: local(new Date().toISOString()),

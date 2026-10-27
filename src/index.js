@@ -1,14 +1,35 @@
-import { interfaceLocal, enderecosDaRede, macPrivado } from './rede.js';
-import { descobrirAparelhos, sistemaProvavel } from './descobrir.js';
+import { interfaceLocal, enderecosDaRede, macPrivado, gatewayPadrao } from './rede.js';
+import { descobrirAparelhos, sistemaProvavel, macDe } from './descobrir.js';
 import { PORTAS, portasAbertas } from './portas.js';
 import { emParalelo } from './util.js';
-import { abrir, guardar, macsConhecidos, ultimoVarrimento, ausenciasPorMac } from './historico.js';
+import { abrir, guardar, macsConhecidos, ultimoVarrimento, ausenciasPorMac, redeAprovada, aprovarRede } from './historico.js';
 import { compararVarrimentos } from './comparar.js';
 
 const local = interfaceLocal();
 const { cidr, hosts } = enderecosDaRede(local);
 
 console.log(`\nAnalista de logs com LLM — rede ${cidr} (interface "${local.nome}", este PC é ${local.ip})`);
+
+// Um portátil liga-se a muitas redes, e varrer uma rede alheia é crime. Por isso só se varrem redes aprovadas,
+// reconhecidas pelo MAC do router (o intervalo de endereços repete-se de casa para casa).
+const routerIp = await gatewayPadrao(local);
+const routerMac = routerIp && (await macDe(routerIp));
+if (!routerMac) {
+  console.error('\nNão consegui saber qual é o router desta rede, por isso não sei se é uma rede aprovada. Não varri nada.\n');
+  process.exit(1);
+}
+const rede = { cidr, router: routerMac };
+const db = abrir();
+if (!redeAprovada(db, routerMac)) {
+  if (!process.argv.includes('--aprovar')) {
+    console.log(`\nRede nova: router ${routerIp} (${routerMac}). Ainda não está aprovada, por isso não varri nada.`);
+    console.log('Se a rede é tua, ou tens autorização de quem manda nela, aprova-a uma vez com:');
+    console.log('  npm run scan -- --aprovar\n');
+    process.exit(2);
+  }
+  aprovarRede(db, routerMac, cidr);
+  console.log(`Rede aprovada (router ${routerIp}, ${routerMac}).`);
+}
 
 const aparelhos = await descobrirAparelhos(local, hosts, (feitos, total) => {
   process.stdout.write(`\rA procurar aparelhos… ${feitos}/${total}`);
@@ -22,11 +43,10 @@ await emParalelo(aparelhos, 8, async (a) => {
 
 mostrarInventario(aparelhos);
 
-const db = abrir();
-const anterior = ultimoVarrimento(db, cidr);
+const anterior = ultimoVarrimento(db, rede);
 const conhecidos = macsConhecidos(db);
-const mudancas = compararVarrimentos(anterior, aparelhos, conhecidos, ausenciasPorMac(db, cidr));
-guardar(db, cidr, aparelhos);
+const mudancas = compararVarrimentos(anterior, aparelhos, conhecidos, ausenciasPorMac(db, rede));
+guardar(db, rede, aparelhos);
 
 if (!anterior) {
   console.log('\nPrimeiro varrimento desta rede: fica guardado como linha de base.');

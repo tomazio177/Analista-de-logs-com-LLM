@@ -14,6 +14,8 @@ npm run scan
 
 Precisa de Node 22.13 ou mais recente. O primeiro varrimento fica guardado como linha de base; os seguintes mostram só o que mudou.
 
+Numa rede nova, o programa não varre nada até a aprovares uma vez com `npm run scan -- --aprovar`. A rede é reconhecida pelo MAC do router, porque muitas casas usam o mesmo intervalo (192.168.1.0/24) e um portátil liga-se a redes que não são tuas.
+
 ```powershell
 npm run logs          # logins falhados no Windows dos últimos 7 dias
 npm run logs -- 30    # ou dos últimos 30
@@ -31,7 +33,7 @@ Os logs só funcionam no Windows e num PowerShell aberto como administrador: o r
 1. **Descobrir a rede** (`src/rede.js`) — lê as interfaces do sistema, ignora adaptadores virtuais (Docker, WSL, VPNs) e calcula os endereços da rede local. Redes maiores que /24 ficam limitadas a 254 endereços.
 2. **Descobrir aparelhos** (`src/descobrir.js`) — ping a cada endereço, 48 em paralelo, e depois a tabela ARP do sistema. A tabela ARP apanha os aparelhos que ignoram o ping: para o ping sair, o PC teve de perguntar quem tinha aquele IP, e a resposta fica registada.
 3. **Testar portas** (`src/portas.js`) — *connect scan* a 18 portas escolhidas pelo que revelam num aparelho de casa (telnet, SMB, RDP, MQTT, câmaras RTSP, impressoras…). Não precisa de privilégios de administrador.
-4. **Guardar e comparar** (`src/historico.js`, `src/comparar.js`) — SQLite com três tabelas (varrimentos, dispositivos, observações). A comparação deteta aparelhos novos, que voltaram, que saíram, que mudaram de IP, e portas que abriram ou fecharam.
+4. **Guardar e comparar** (`src/historico.js`, `src/comparar.js`) — SQLite com o histórico dos varrimentos, dos aparelhos e das redes aprovadas. Cada rede é o intervalo de endereços mais o MAC do router; os varrimentos feitos antes desta regra não têm router guardado e contam como da rede com o mesmo intervalo. A comparação deteta aparelhos novos, que voltaram, que saíram, que mudaram de IP, e portas que abriram ou fecharam.
 5. **Logins falhados** (`src/eventos.js`, `src/logins.js`, `src/logs.js`) — lê o evento 4625 do Windows pelo PowerShell e aplica regras fixas: rajadas (5 tentativas em 10 minutos da mesma origem), tentativas vindas de outro aparelho da rede (a ligação com a porta 445 aberta da fase 1) e nomes de utilizador que não existem. A origem de cada tentativa é cruzada com os aparelhos dos varrimentos.
 6. **Triagem com LLM** (`src/triagem.js`) — junta o último varrimento, os logins falhados dos últimos 7 dias e os alertas das regras, e pede ao Claude uma triagem em português. A resposta segue um esquema fixo (nível geral, achados, perguntas para o dono) e é validada com Zod. Cada achado separa o que está nos dados (`nos_dados`) do que o modelo sabe de fora (`conhecimento_geral`, por exemplo como o Edge se comporta ou que serviço costuma estar numa porta), e só depois tira a conclusão. Assim vê-se de onde vem cada parte, e a confiança só pode ser "alta" quando a conclusão sai dos dados. Os IPs, horas e portas citados como factos são procurados nos dados enviados; os que lá não estão aparecem assinalados (`src/verificar.js`). As regras decidem o que é alerta; o modelo explica e junta sinais. Dos MACs só segue o prefixo do fabricante, e os nomes dos aparelhos são tratados como dados, não como instruções — qualquer pessoa pode dar ao telemóvel um nome que pareça uma ordem.
 
