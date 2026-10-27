@@ -1,5 +1,5 @@
 import { lerLoginsFalhados, SEM_PERMISSAO } from './eventos.js';
-import { interpretar, alertas, nomeDoProcesso, RAJADA } from './logins.js';
+import { interpretar, alertas, nomeDoProcesso, RAJADA, SEM_IP } from './logins.js';
 import { abrir, guardarLogins, aparelhosPorIp, guardarLeitura, coberturaDosLogs } from './historico.js';
 
 const dias = Number(process.argv[2] ?? 7);
@@ -32,7 +32,7 @@ const aparelhos = aparelhosPorIp(db);
 
 const quando = (iso) => new Date(iso).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const descreverOrigem = (origem) => {
-  if (origem === 'este PC') return 'este PC';
+  if (origem === 'este PC' || origem === SEM_IP) return origem;
   const a = aparelhos.get(origem);
   return a ? `${origem} (${a.nome ?? a.mac})` : `${origem} (aparelho que nunca apareceu num varrimento)`;
 };
@@ -58,7 +58,7 @@ const colunas = (...c) => c[0].padEnd(2) + c[1].padEnd(18) + c[2].padEnd(16) + c
 console.log(colunas('', 'QUANDO', 'UTILIZADOR', 'TIPO', 'ORIGEM', 'PROCESSO', 'MOTIVO'));
 console.log('─'.repeat(130));
 for (const l of logins.slice(0, MAXIMO)) {
-  const origem = descreverOrigem(l.ip ?? 'este PC');
+  const origem = descreverOrigem(l.ip ?? (l.pelaRede ? SEM_IP : 'este PC'));
   const processo = nomeDoProcesso(l.processo) ?? '—';
   console.log(colunas(novos.has(l.id) ? '*' : '', quando(l.quando), (l.utilizador ?? '—').slice(0, 15), l.tipoTexto.slice(0, 21), origem.slice(0, 29), processo.slice(0, 21), l.motivo));
 }
@@ -78,7 +78,7 @@ const descrever = {
     );
   },
   'pela-rede': (a) => `! PELA REDE     ${a.n} tentativas vindas de ${descreverOrigem(a.origem)}, com: ${a.utilizadores.join(', ')}`,
-  'utilizador-inexistente': (a) => `· NOMES FALSOS  ${a.n} tentativas com utilizadores que não existem neste PC: ${a.utilizadores.join(', ')}`,
+  'utilizador-inexistente': (a) => `· NOMES FALSOS  ${a.n} tentativas a partir de ${descreverOrigem(a.origem)} com utilizadores que não existem neste PC: ${a.utilizadores.join(', ')}`,
 };
 
 if (lista.length) {

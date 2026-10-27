@@ -62,7 +62,9 @@ export function completar(l) {
 // Regras fixas: decidem o que é grave. O LLM vem depois, para explicar — não para decidir.
 export const RAJADA = { tentativas: 5, minutos: 10 };
 
-const origemDe = (l) => l.ip ?? 'este PC';
+// Um login pela rede sem IP (acontece com RDP e partilhas, LogonType 3 com IpAddress "-") não é deste PC.
+export const SEM_IP = 'rede (IP desconhecido)';
+const origemDe = (l) => l.ip ?? (l.pelaRede ? SEM_IP : 'este PC');
 export const nomeDoProcesso = (caminho) => caminho?.split('\\').pop() ?? null;
 
 // Uma pessoa a errar a palavra-passe leva vários segundos entre tentativas; um programa a repetir uma credencial, menos de 2.
@@ -94,6 +96,7 @@ export function alertas(logins) {
       resultado.push({
         tipo: 'rajada',
         origem,
+        remoto: origem !== 'este PC',
         n: pior.n,
         de: janela[0].quando,
         ate: janela.at(-1).quando,
@@ -106,15 +109,29 @@ export function alertas(logins) {
   }
 
   // Tentativas vindas de outro aparelho da rede: é a ligação com a fase 1 (porta 445 aberta → alguém tentou usá-la?).
-  for (const [ip, lista] of agrupar(logins.filter((l) => l.pelaRede && l.ip), (l) => l.ip)) {
-    resultado.push({ tipo: 'pela-rede', origem: ip, n: lista.length, utilizadores: [...new Set(lista.map((l) => l.utilizador))] });
+  for (const [origem, lista] of agrupar(logins.filter((l) => l.pelaRede), origemDe)) {
+    resultado.push({ tipo: 'pela-rede', origem, remoto: true, ...periodo(lista), utilizadores: [...new Set(lista.map((l) => l.utilizador))] });
   }
 
   // Nomes que não existem neste PC: típico de quem tenta "admin", "administrator", "test"…
-  const inexistentes = logins.filter((l) => l.codigo === '0xc0000064');
-  if (inexistentes.length) {
-    resultado.push({ tipo: 'utilizador-inexistente', n: inexistentes.length, utilizadores: [...new Set(inexistentes.map((l) => l.utilizador))] });
+  // Ao teclado, é muitas vezes o dono a escrever a palavra-passe no campo do utilizador; por isso conta a origem.
+  for (const [origem, lista] of agrupar(logins.filter((l) => l.codigo === '0xc0000064'), origemDe)) {
+    resultado.push({ tipo: 'utilizador-inexistente', origem, remoto: origem !== 'este PC', ...periodo(lista), utilizadores: [...new Set(lista.map((l) => l.utilizador))] });
   }
 
-  return resultado;
+  return resultado.map((a) => ({ ...a, gravidadeMinima: gravidadeMinima(a) }));
+}
+
+function periodo(lista) {
+  const horas = lista.map((l) => l.quando).toSorted();
+  return { n: lista.length, de: horas[0], ate: horas.at(-1) };
+}
+
+// O meio-termo: o que vem da rede tem um piso que o modelo não pode baixar; o que acontece neste PC não tem,
+// e o modelo pode baixar a gravidade se disser porquê (a rajada do Edge era um programa a repetir uma credencial).
+export function gravidadeMinima(a) {
+  if (!a.remoto) return null;
+  if (a.tipo === 'rajada') return 'alta';
+  if (a.tipo === 'pela-rede') return a.n >= RAJADA.tentativas ? 'alta' : 'media';
+  return 'media';
 }

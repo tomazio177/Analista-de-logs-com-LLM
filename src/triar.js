@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { abrir, guardarTriagem } from './historico.js';
-import { recolher, triar, ErroTriagem, MODELO } from './triagem.js';
+import { recolher, triar, aplicarRegras, ErroTriagem, MODELO } from './triagem.js';
 import { semApoioNosDados } from './verificar.js';
 
 // A chave da API vem do ficheiro .env (fora do git). Sem .env, fica a que estiver no ambiente.
@@ -75,9 +75,9 @@ try {
   process.exit(1);
 }
 guardarTriagem(db, { varrimentoId, modelo: resultado.modelo, entrada: dados, resposta: resultado.bruto, erro: null });
-mostrar(resultado);
+mostrar({ ...resultado, ...aplicarRegras(dados, resultado.triagem) });
 
-function mostrar({ triagem: t, modelo, uso }) {
+function mostrar({ triagem: t, avisos, modelo, uso }) {
   const NIVEL = { tranquilo: '✓ TRANQUILO', atencao: '! ATENÇÃO', urgente: '!! URGENTE' };
   const ORDEM = { alta: 0, media: 1, baixa: 2, info: 3 };
   const GRAVIDADE = { alta: 'ALTA ', media: 'MÉDIA', baixa: 'BAIXA', info: 'INFO ' };
@@ -85,6 +85,7 @@ function mostrar({ triagem: t, modelo, uso }) {
   console.log(`\n${NIVEL[t.nivel_geral]}\n\n${t.resumo}\n`);
   for (const a of t.achados.toSorted((x, y) => ORDEM[x.gravidade] - ORDEM[y.gravidade])) {
     console.log(`[${GRAVIDADE[a.gravidade]}] ${a.titulo}   (confiança ${a.confianca})`);
+    if (a.gravidade_do_modelo) console.log(`  (o modelo deu ${a.gravidade_do_modelo}; num alerta vindo da rede, as regras não deixam baixar de ${a.gravidade})`);
     console.log('  Nos dados:');
     for (const f of a.nos_dados) console.log(`    · ${f}`);
     if (a.conhecimento_geral.length) {
@@ -97,6 +98,8 @@ function mostrar({ triagem: t, modelo, uso }) {
     if (falta.length) console.log(`  ⚠ Citado como facto mas não está nos dados enviados: ${falta.join(', ')}`);
     console.log();
   }
+  for (const aviso of avisos) console.log(`⚠ ${aviso}`);
+  if (avisos.length) console.log();
   if (t.perguntas_ao_dono.length) {
     console.log('Perguntas que só tu sabes responder:');
     for (const p of t.perguntas_ao_dono) console.log(`  - ${p}`);

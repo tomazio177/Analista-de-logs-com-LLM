@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { comBaseTemporaria } from './ajuda.js';
 import { guardar, guardarLogins, guardarLeitura } from '../src/historico.js';
-import { recolher, triar, ErroTriagem, MODELO, DIAS } from '../src/triagem.js';
+import { recolher, triar, aplicarRegras, ErroTriagem, MODELO, DIAS } from '../src/triagem.js';
 
 const FUSO = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const local = (iso) => new Date(iso).toLocaleString('sv-SE', { timeZone: FUSO });
@@ -66,6 +66,7 @@ const texto = (obj) => ({ content: [{ type: 'text', text: typeof obj === 'string
 const achado = {
   titulo: 'Rajada de palavras-passe erradas vinda do Edge',
   gravidade: 'baixa',
+  alertas_relacionados: ['a1'],
   nos_dados: ['28 tentativas do msedge.exe', 'ritmoDeMaquina: true'],
   conhecimento_geral: ['O Edge pode repetir uma credencial guardada.'],
   conclusao: 'Provavelmente o Edge a repetir uma credencial antiga.',
@@ -84,7 +85,7 @@ test('triar envia o esquema com os campos separados e devolve a resposta validad
   const { format } = cliente.pedido.output_config;
   assert.equal(format.type, 'json_schema');
   assert.deepEqual(Object.keys(format.schema.properties.achados.items.properties),
-    ['titulo', 'gravidade', 'nos_dados', 'conhecimento_geral', 'conclusao', 'acao_sugerida', 'confianca']);
+    ['titulo', 'gravidade', 'alertas_relacionados', 'nos_dados', 'conhecimento_geral', 'conclusao', 'acao_sugerida', 'confianca']);
   assert.equal(cliente.pedido.fallbacks, 'default');
 });
 
@@ -104,4 +105,63 @@ test('recusas, respostas cortadas e texto que não é JSON dão erros próprios'
   await assert.rejects(triar({}, clienteFalso({ stop_reason: 'max_tokens', ...texto('{"resumo":') })), /cortada/);
   await assert.rejects(triar({}, clienteFalso({ content: [] })), /não trouxe texto/);
   await assert.rejects(triar({}, clienteFalso(texto('{"resumo":'))), /não é JSON válido/);
+});
+
+// Logins de teste: `pelaRede` com IP é outro aparelho; sem IP e tipo 2 é alguém (ou algum programa) neste PC.
+const tentativas = (n, extra) => Array.from({ length: n }, (_, i) => ({
+  id: 500 + i + (extra.base ?? 0), quando: new Date(Date.parse('2026-10-26T20:00:00Z') + i * 30_000).toISOString(),
+  utilizador: 'x', tipo: 2, codigo: '0xc000006a', ip: null, estacao: null, processo: null, ...extra,
+}));
+
+test('os nomes de utilizador dos logins neste PC não saem do PC; os que vêm da rede seguem', () =>
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
+    casaDeTeste(db);
+    guardarLogins(db, [
+      ...tentativas(2, { utilizador: 'MinhaPass123', codigo: '0xc0000064' }),
+      ...tentativas(2, { base: 10, utilizador: 'admin', tipo: 3, ip: '192.168.1.66', codigo: '0xc0000064' }),
+    ]);
+    const { dados } = recolher(db, AGORA);
+    const texto = JSON.stringify(dados);
+
+    assert.equal(texto.includes('MinhaPass123'), false);
+    assert.ok(texto.includes('admin'));
+    const inexistentes = dados.logins_falhados.alertas_das_regras.filter((a) => a.tipo === 'utilizador-inexistente');
+    assert.deepEqual(inexistentes.map((a) => [a.origem, a.utilizadores ?? a.utilizadores_distintos]), [['este PC', 1], ['192.168.1.66', ['admin']]]);
+  }));
+
+test('cada alerta segue com id e com a gravidade mínima das regras: só os da rede a têm', () =>
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
+    casaDeTeste(db);
+    guardarLogins(db, tentativas(6, { base: 20, tipo: 3, ip: '192.168.1.66' }));
+    const alertas = recolher(db, AGORA).dados.logins_falhados.alertas_das_regras;
+    assert.deepEqual(alertas.map((a) => [a.id, a.tipo, a.origem, a.gravidade_minima]), [
+      ['a1', 'rajada', 'este PC', null],
+      ['a2', 'rajada', '192.168.1.66', 'alta'],
+      ['a3', 'pela-rede', '192.168.1.66', 'alta'],
+    ]);
+  }));
+
+const dadosComAlertas = { logins_falhados: { alertas_das_regras: [
+  { id: 'a1', tipo: 'rajada', origem: 'este PC', n: 28, gravidade_minima: null },
+  { id: 'a2', tipo: 'pela-rede', origem: '192.168.1.66', n: 3, gravidade_minima: 'media' },
+] } };
+
+test('meio-termo: o modelo baixa um alerta deste PC, mas não um da rede', () => {
+  const resposta = { ...valida, achados: [
+    { ...achado, alertas_relacionados: ['a1'], gravidade: 'info' },
+    { ...achado, titulo: 'Tentativas do iPhone', alertas_relacionados: ['a2'], gravidade: 'baixa' },
+  ] };
+  const { triagem, avisos } = aplicarRegras(dadosComAlertas, resposta);
+  assert.deepEqual(triagem.achados.map((a) => [a.gravidade, a.gravidade_do_modelo]), [['info', undefined], ['media', 'baixa']]);
+  assert.deepEqual(avisos, []);
+  assert.equal(triagem.nivel_geral, 'atencao'); // havia um alerta da rede: "tranquilo" não pode ser
+});
+
+test('um alerta da rede esquecido pelo modelo e um id inventado dão aviso', () => {
+  const { avisos } = aplicarRegras(dadosComAlertas, { ...valida, achados: [{ ...achado, alertas_relacionados: ['a1', 'a9'] }] });
+  assert.equal(avisos.length, 2);
+  assert.match(avisos[0], /"a9"/);
+  assert.match(avisos[1], /a2 .*pelo menos media/);
 });

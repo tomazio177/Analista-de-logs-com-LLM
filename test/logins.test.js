@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { interpretar, alertas, RAJADA, RITMO_DE_MAQUINA } from '../src/logins.js';
+import { interpretar, alertas, RAJADA, RITMO_DE_MAQUINA, SEM_IP } from '../src/logins.js';
 
 const evento = (campos, quando = '2026-10-22T14:45:00.000Z', id = 1) => ({ id, quando, campos: { LogonType: '2', SubStatus: '0xc000006a', ...campos } });
 
@@ -41,7 +41,20 @@ test('uma pessoa a errar a palavra-passe não tem ritmo de máquina; poucas tent
   assert.deepEqual(alertas(serie(RAJADA.tentativas, (RAJADA.minutos * 60) / 2)), []);
 });
 
-test('tentativas vindas de outro aparelho e nomes inexistentes têm alertas próprios', () => {
+test('tentativas vindas de outro aparelho e nomes inexistentes têm alertas próprios, por origem', () => {
   const vindas = serie(2, 60, { ip: '192.168.1.50', pelaRede: true, utilizador: 'admin', codigo: '0xc0000064' });
-  assert.deepEqual(alertas(vindas).map((a) => [a.tipo, a.n]), [['pela-rede', 2], ['utilizador-inexistente', 2]]);
+  const aoTeclado = serie(1, 60, { utilizador: 'engano', codigo: '0xc0000064' });
+  assert.deepEqual(alertas([...vindas, ...aoTeclado]).map((a) => [a.tipo, a.origem, a.n, a.gravidadeMinima]), [
+    ['pela-rede', '192.168.1.50', 2, 'media'],
+    ['utilizador-inexistente', '192.168.1.50', 2, 'media'],
+    ['utilizador-inexistente', 'este PC', 1, null],
+  ]);
+});
+
+test('um login pela rede sem IP não conta como deste PC', () => {
+  // RDP com NLA e NTLM por partilhas registam o 4625 com LogonType 3 e IpAddress "-".
+  const [rajada, pelaRede] = alertas(serie(RAJADA.tentativas, 1, { tipo: 3, pelaRede: true }));
+  assert.deepEqual([rajada.origem, rajada.remoto, rajada.gravidadeMinima], [SEM_IP, true, 'alta']);
+  assert.equal(pelaRede.tipo, 'pela-rede');
+  assert.equal(alertas(serie(RAJADA.tentativas, 1))[0].remoto, false);
 });
