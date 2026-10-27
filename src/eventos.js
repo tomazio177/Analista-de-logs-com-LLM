@@ -11,6 +11,11 @@ export const SEM_PERMISSAO = 5;
 const script = (dias) => `
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+# Sem privilégios, o -FilterHashtable não diz "acesso negado": diz que não encontrou eventos, e o resultado
+# saía como 0 logins falhados. O -LogName dá o erro certo, por isso o acesso confirma-se primeiro com ele.
+try { $null = Get-WinEvent -LogName Security -MaxEvents 1 } catch {
+  if ($_.Exception -is [System.UnauthorizedAccessException]) { exit ${SEM_PERMISSAO} }
+}
 try {
   $eventos = Get-WinEvent -FilterHashtable @{ LogName = 'Security'; Id = 4625; StartTime = (Get-Date).AddDays(-${dias}) } -MaxEvents 5000
 } catch {
