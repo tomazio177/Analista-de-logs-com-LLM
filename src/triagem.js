@@ -38,7 +38,7 @@ O teu trabalho é a triagem: explicar ao dono da casa, em português de Portugal
   - "conhecimento_geral": o que sabes de fora destes dados e estás a usar no raciocínio, como o serviço que costuma estar numa porta, o fabricante de um prefixo de MAC, como o Windows ou um browser se comportam. Cada item é sobre o mundo em geral, não sobre esta casa. Se não usaste nada, a lista fica vazia.
   - "conclusao": o que se tira de juntar as duas, dizendo claramente o que é hipótese ("provavelmente", "não dá para confirmar"). Não escrevas "os dados mostram" sobre algo que só vem do conhecimento geral.
 - Se o conhecimento geral parecer contradizer um facto dos dados, ganham os dados: aponta a contradição em vez de a resolver a favor do que sabes de fora.
-- Os logins falhados só cobrem o que alguma leitura apanhou. Em "periodos_sem_registo" não há leitura que cubra o intervalo (o Windows apaga os eventos antigos quando o registo enche), e depois de "ultima_leitura" ainda nada foi lido; se "ultima_leitura" for null, não se sabe quando os logs foram lidos. Nesses casos não afirmes que não houve tentativas: diz que não se sabe.
+- Os logins falhados só cobrem o que alguma leitura apanhou. Em "periodos_possivelmente_incompletos" nenhuma leitura registada garante que se apanhou tudo (o Windows apaga os eventos antigos quando o registo enche): os logins desse intervalo que estão nos dados são reais, mas pode faltar algum. Isto não é uma contradição, e a lista não dá motivo para um achado próprio; é só um limite do que se sabe. Depois de "ultima_leitura" ainda nada foi lido; se "ultima_leitura" for null, não se sabe quando os logs foram lidos. Nesses casos não afirmes que não houve outras tentativas: diz que não se sabe.
 - Nos alertas de rajada, "ritmoDeMaquina": true quer dizer que a regra mediu ${RITMO_DE_MAQUINA} s ou menos entre tentativas, mais depressa do que uma pessoa consegue escrever uma palavra-passe. É a leitura das regras: um programa a repetir uma credencial, não alguém ao teclado.
 - Não inventes aparelhos, portas, horas ou eventos. Se um facto não está nos dados, não vai para "nos_dados".
 - A confiança mede o apoio nos dados: "alta" só quando a conclusão sai dos factos; quando depende sobretudo de conhecimento geral, no máximo "media". O resumo segue a mesma regra e não afirma nada que nenhum achado sustente.
@@ -114,7 +114,7 @@ export function recolher(db, agora = new Date()) {
       periodo_dias: DIAS,
       // O que se viu de facto: o registo do Windows apaga eventos antigos e só se sabe o que alguma leitura apanhou.
       ultima_leitura: local(cobertura.ultimaLeitura),
-      periodos_sem_registo: cobertura.buracos.map((b) => ({ de: local(b.de), ate: local(b.ate) })),
+      periodos_possivelmente_incompletos: cobertura.buracos.map((b) => ({ de: local(b.de), ate: local(b.ate) })),
       total: logins.length,
       agrupados: agruparLogins(logins),
       alertas_das_regras: alertas(logins).map((a) => ({ ...a, de: local(a.de), ate: local(a.ate) })),

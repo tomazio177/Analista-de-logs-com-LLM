@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { comBaseTemporaria } from './ajuda.js';
 import {
-  abrir, guardar, ultimoVarrimento, ausenciasPorMac, contarVarrimentos, inventarioAtual,
+  guardar, ultimoVarrimento, ausenciasPorMac, contarVarrimentos, inventarioAtual,
   aprovarRede, redeAprovada, guardarLeitura, coberturaDosLogs, guardarTriagem,
 } from '../src/historico.js';
 
 const aparelho = (mac, ip, extra = {}) => ({ mac, ip, portas: [], nome: null, ...extra });
 
 test('uma base anterior a estas versões ganha as colunas novas sem perder varrimentos', () =>
-  comBaseTemporaria((ficheiro) => {
+  comBaseTemporaria((abrirBase, ficheiro) => {
     const antiga = new DatabaseSync(ficheiro);
     antiga.exec(`
       CREATE TABLE varrimentos (id INTEGER PRIMARY KEY, data TEXT NOT NULL, rede TEXT NOT NULL);
@@ -20,18 +20,18 @@ test('uma base anterior a estas versões ganha as colunas novas sem perder varri
     `);
     antiga.close();
 
-    const db = abrir(ficheiro);
+    const db = abrirBase();
     const colunas = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
     assert.ok(colunas('observacoes').includes('proprio'));
     assert.ok(colunas('varrimentos').includes('router_mac'));
     assert.equal(ultimoVarrimento(db, { cidr: '192.168.1.0/24', router: 'qualquer' }).data, '2026-10-23T17:32:23Z');
     db.close();
-    assert.doesNotThrow(() => abrir(ficheiro).close()); // abrir outra vez não volta a migrar
+    assert.doesNotThrow(() => abrirBase().close()); // abrir outra vez não volta a migrar
   }));
 
 test('duas casas com o mesmo intervalo de endereços não misturam o histórico', () =>
-  comBaseTemporaria((ficheiro) => {
-    const db = abrir(ficheiro);
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
     const casa = { cidr: '192.168.1.0/24', router: '00:00:5e:00:53:01' };
     const amigos = { cidr: '192.168.1.0/24', router: '00:00:5e:00:53:02' };
     guardar(db, casa, [aparelho('tv', '192.168.1.20')], '2026-10-24T10:00:00Z');
@@ -47,8 +47,8 @@ test('duas casas com o mesmo intervalo de endereços não misturam o histórico'
   }));
 
 test('só as redes aprovadas ficam aprovadas, e o PC fica marcado em cada varrimento', () =>
-  comBaseTemporaria((ficheiro) => {
-    const db = abrir(ficheiro);
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
     assert.equal(redeAprovada(db, '00:00:5e:00:53:01'), undefined);
     aprovarRede(db, '00:00:5e:00:53:01', '192.168.1.0/24');
     assert.equal(redeAprovada(db, '00:00:5e:00:53:01').rede, '192.168.1.0/24');
@@ -59,8 +59,8 @@ test('só as redes aprovadas ficam aprovadas, e o PC fica marcado em cada varrim
   }));
 
 test('os intervalos que nenhuma leitura dos logs cobre aparecem como buracos', () =>
-  comBaseTemporaria((ficheiro) => {
-    const db = abrir(ficheiro);
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
     const desde = '2026-10-20T00:00:00Z';
     assert.deepEqual(coberturaDosLogs(db, desde), { ultimaLeitura: null, buracos: [] });
 
@@ -80,8 +80,8 @@ test('os intervalos que nenhuma leitura dos logs cobre aparecem como buracos', (
   }));
 
 test('a tabela triagens guarda o que foi enviado e também as falhas sem resposta', () =>
-  comBaseTemporaria((ficheiro) => {
-    const db = abrir(ficheiro);
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
     guardar(db, { cidr: 'r', router: 'x' }, []);
     guardarTriagem(db, { varrimentoId: 1, modelo: 'm', entrada: { aparelhos: [] }, resposta: '{"resumo":"ok"}', erro: null }, '2026-10-27T10:00:00Z');
     guardarTriagem(db, { varrimentoId: 1, modelo: 'm', entrada: { aparelhos: [] }, resposta: null, erro: 'recusa' }, '2026-10-27T11:00:00Z');

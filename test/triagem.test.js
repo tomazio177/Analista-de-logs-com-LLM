@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { comBaseTemporaria } from './ajuda.js';
-import { abrir, guardar, guardarLogins, guardarLeitura } from '../src/historico.js';
+import { guardar, guardarLogins, guardarLeitura } from '../src/historico.js';
 import { recolher, triar, ErroTriagem, MODELO, DIAS } from '../src/triagem.js';
 
 const FUSO = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -23,11 +23,11 @@ function casaDeTeste(db) {
 }
 
 test('sem varrimentos não há nada para enviar', () =>
-  comBaseTemporaria((ficheiro) => assert.equal(recolher(abrir(ficheiro), AGORA), null)));
+  comBaseTemporaria((abrirBase) => assert.equal(recolher(abrirBase(), AGORA), null)));
 
 test('os dados enviados marcam este PC pelo varrimento e escondem o MAC completo', () =>
-  comBaseTemporaria((ficheiro) => {
-    const db = abrir(ficheiro);
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
     casaDeTeste(db);
     const { varrimentoId, dados } = recolher(db, AGORA);
 
@@ -39,8 +39,8 @@ test('os dados enviados marcam este PC pelo varrimento e escondem o MAC completo
   }));
 
 test('os logins seguem agrupados, com a leitura do ritmo e os períodos que nenhuma leitura cobre', () =>
-  comBaseTemporaria((ficheiro) => {
-    const db = abrir(ficheiro);
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
     casaDeTeste(db);
     const { logins_falhados: l } = recolher(db, AGORA).dados;
 
@@ -51,7 +51,7 @@ test('os logins seguem agrupados, com a leitura do ritmo e os períodos que nenh
     assert.equal(l.alertas_das_regras[0].ritmoDeMaquina, true);
     assert.equal(l.ultima_leitura, local('2026-10-27T10:00:00Z'));
     const inicio = new Date(AGORA.getTime() - DIAS * 86_400_000).toISOString();
-    assert.deepEqual(l.periodos_sem_registo, [{ de: local(inicio), ate: local('2026-10-22T14:55:28Z') }]);
+    assert.deepEqual(l.periodos_possivelmente_incompletos, [{ de: local(inicio), ate: local('2026-10-22T14:55:28Z') }]);
   }));
 
 // Um cliente falso: devolve uma resposta fixa e guarda o pedido para se poder inspecionar.
