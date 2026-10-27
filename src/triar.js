@@ -35,7 +35,7 @@ function carregarEnv() {
 }
 
 const db = abrir();
-const { varrimentoId, dados } = recolher(db) ?? {};
+const { varrimentoId, dados, ancoras } = recolher(db) ?? {};
 if (!dados) {
   console.error('\nAinda não há varrimentos guardados. Corre primeiro: npm run scan\n');
   process.exit(1);
@@ -74,7 +74,7 @@ try {
   console.error(`\n${mensagem}\n`);
   process.exit(1);
 }
-guardarTriagem(db, { varrimentoId, modelo: resultado.modelo, entrada: dados, resposta: resultado.bruto, erro: null });
+guardarTriagem(db, { varrimentoId, modelo: resultado.modelo, entrada: dados, resposta: resultado.bruto, erro: null, ancoras });
 mostrar({ ...resultado, ...aplicarRegras(dados, resultado.triagem) });
 
 function mostrar({ triagem: t, avisos, modelo, uso }) {
@@ -102,8 +102,8 @@ function mostrar({ triagem: t, avisos, modelo, uso }) {
   if (avisos.length) console.log();
   if (t.perguntas_ao_dono.length) {
     console.log('Perguntas que só tu sabes responder:');
-    for (const p of t.perguntas_ao_dono) console.log(`  - ${p}`);
-    console.log();
+    t.perguntas_ao_dono.forEach((p, i) => console.log(`  ${i + 1}. ${p.pergunta}`));
+    console.log('\nPara responder (a triagem seguinte já não pergunta o mesmo): npm run responder\n');
   }
   console.log(`(${modelo}: ${uso.input_tokens} tokens de entrada, ${uso.output_tokens} de saída)\n`);
 }

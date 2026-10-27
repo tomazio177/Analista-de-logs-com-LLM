@@ -41,6 +41,14 @@ export function abrir(ficheiro = FICHEIRO) {
       resposta       TEXT,
       erro           TEXT
     );
+    CREATE TABLE IF NOT EXISTS notas (
+      id         INTEGER PRIMARY KEY,
+      data       TEXT NOT NULL,
+      alvo_tipo  TEXT NOT NULL,
+      alvo       TEXT,
+      pergunta   TEXT,
+      texto      TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS leituras_logs (
       data         TEXT NOT NULL,
       mais_antigo  TEXT
@@ -60,6 +68,10 @@ export function abrir(ficheiro = FICHEIRO) {
   // Bases criadas antes de se guardar qual é este PC em cada varrimento.
   if (!db.prepare('PRAGMA table_info(observacoes)').all().some((c) => c.name === 'proprio')) {
     db.exec('ALTER TABLE observacoes ADD COLUMN proprio INTEGER NOT NULL DEFAULT 0');
+  }
+  // E antes de as triagens guardarem a que aparelho ou alerta se refere cada id (para as respostas do dono).
+  if (!db.prepare('PRAGMA table_info(triagens)').all().some((c) => c.name === 'ancoras')) {
+    db.exec('ALTER TABLE triagens ADD COLUMN ancoras TEXT');
   }
   // E antes de a rede ser identificada pelo MAC do router.
   if (!db.prepare('PRAGMA table_info(varrimentos)').all().some((c) => c.name === 'router_mac')) {
@@ -213,7 +225,32 @@ export function coberturaDosLogs(db, desde) {
 
 // Cada triagem fica guardada com o que foi enviado e o texto devolvido, tal e qual, mesmo quando falha:
 // dá para ver mais tarde o que o modelo disse e com que dados.
-export function guardarTriagem(db, { varrimentoId, modelo, entrada, resposta, erro }, data = new Date().toISOString()) {
-  db.prepare('INSERT INTO triagens (data, varrimento_id, modelo, entrada, resposta, erro) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(data, varrimentoId, modelo, JSON.stringify(entrada), resposta, erro);
+export function guardarTriagem(db, { varrimentoId, modelo, entrada, resposta, erro, ancoras = null }, data = new Date().toISOString()) {
+  db.prepare('INSERT INTO triagens (data, varrimento_id, modelo, entrada, resposta, erro, ancoras) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(data, varrimentoId, modelo, JSON.stringify(entrada), resposta, erro, ancoras && JSON.stringify(ancoras));
+}
+
+export const ultimaTriagemValida = (db) =>
+  db.prepare('SELECT id, data, resposta, ancoras FROM triagens WHERE erro IS NULL AND resposta IS NOT NULL ORDER BY id DESC LIMIT 1').get();
+
+// As respostas do dono às perguntas da triagem. Cada nota fica presa àquilo de que fala:
+// um aparelho (pelo MAC), um alerta concreto (tipo, origem e hora de início) ou nada em particular ("geral").
+// Assim "a rajada de 22/10 fui eu" não serve para desculpar uma rajada nova.
+export function guardarNota(db, { alvoTipo, alvo = null, pergunta = null, texto }, data = new Date().toISOString()) {
+  return db.prepare('INSERT INTO notas (data, alvo_tipo, alvo, pergunta, texto) VALUES (?, ?, ?, ?, ?)')
+    .run(data, alvoTipo, alvo, pergunta, texto).lastInsertRowid;
+}
+
+export const listarNotas = (db) => db.prepare('SELECT id, data, alvo_tipo, alvo, pergunta, texto FROM notas ORDER BY id').all();
+
+export const apagarNota = (db, id) => db.prepare('DELETE FROM notas WHERE id = ?').run(id).changes > 0;
+
+// "tipo:alvo" → notas, para juntar a cada aparelho e alerta nos dados da triagem.
+export function notasPorAlvo(db) {
+  const mapa = new Map();
+  for (const n of listarNotas(db)) {
+    const chave = `${n.alvo_tipo}:${n.alvo ?? ''}`;
+    mapa.set(chave, [...(mapa.get(chave) ?? []), { quando: n.data, texto: n.texto }]);
+  }
+  return mapa;
 }

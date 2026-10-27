@@ -81,30 +81,33 @@ export function alertas(logins) {
   const resultado = [];
 
   // Muitas tentativas seguidas da mesma origem: alguém (ou algum programa) a adivinhar palavras-passe.
+  // Cada episódio conta à parte: antes, só a maior rajada de cada origem era reportada, e uma rajada nova
+  // ficava escondida atrás de uma antiga (e da nota do dono sobre ela).
   for (const [origem, lista] of agrupar(logins, origemDe)) {
-    const ordenada = lista.toSorted((a, b) => a.quando.localeCompare(b.quando));
-    let inicio = 0;
-    let pior = null;
-    for (let fim = 0; fim < ordenada.length; fim++) {
-      while (Date.parse(ordenada[fim].quando) - Date.parse(ordenada[inicio].quando) > RAJADA.minutos * 60_000) inicio++;
-      const n = fim - inicio + 1;
-      if (n >= RAJADA.tentativas && n > (pior?.n ?? 0)) pior = { n, inicio, fim };
-    }
-    if (pior) {
-      const janela = ordenada.slice(pior.inicio, pior.fim + 1);
-      const segundos = intervaloMediano(janela);
-      resultado.push({
-        tipo: 'rajada',
-        origem,
-        remoto: origem !== 'este PC',
-        n: pior.n,
-        de: janela[0].quando,
-        ate: janela.at(-1).quando,
-        segundosEntreTentativas: segundos,
-        // A conclusão da regra vai com o alerta: só com o número, o LLM chegou a ler 1,1 s como uma pessoa a escrever.
-        ritmoDeMaquina: segundos <= RITMO_DE_MAQUINA,
-        processos: [...new Set(janela.map((l) => nomeDoProcesso(l.processo) ?? 'desconhecido'))],
-      });
+    for (const ordenada of episodios(lista)) {
+      let inicio = 0;
+      let pior = null;
+      for (let fim = 0; fim < ordenada.length; fim++) {
+        while (Date.parse(ordenada[fim].quando) - Date.parse(ordenada[inicio].quando) > RAJADA.minutos * 60_000) inicio++;
+        const n = fim - inicio + 1;
+        if (n >= RAJADA.tentativas && n > (pior?.n ?? 0)) pior = { n, inicio, fim };
+      }
+      if (pior) {
+        const janela = ordenada.slice(pior.inicio, pior.fim + 1);
+        const segundos = intervaloMediano(janela);
+        resultado.push({
+          tipo: 'rajada',
+          origem,
+          remoto: origem !== 'este PC',
+          n: pior.n,
+          de: janela[0].quando,
+          ate: janela.at(-1).quando,
+          segundosEntreTentativas: segundos,
+          // A conclusão da regra vai com o alerta: só com o número, o LLM chegou a ler 1,1 s como uma pessoa a escrever.
+          ritmoDeMaquina: segundos <= RITMO_DE_MAQUINA,
+          processos: [...new Set(janela.map((l) => nomeDoProcesso(l.processo) ?? 'desconhecido'))],
+        });
+      }
     }
   }
 
@@ -120,6 +123,17 @@ export function alertas(logins) {
   }
 
   return resultado.map((a) => ({ ...a, gravidadeMinima: gravidadeMinima(a) }));
+}
+
+// Tentativas por ordem, cortadas onde houve mais do que a janela da rajada sem nenhuma.
+function episodios(lista) {
+  const resultado = [];
+  for (const l of lista.toSorted((a, b) => a.quando.localeCompare(b.quando))) {
+    const atual = resultado.at(-1);
+    if (atual && Date.parse(l.quando) - Date.parse(atual.at(-1).quando) <= RAJADA.minutos * 60_000) atual.push(l);
+    else resultado.push([l]);
+  }
+  return resultado;
 }
 
 function periodo(lista) {

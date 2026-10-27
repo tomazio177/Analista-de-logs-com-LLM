@@ -5,6 +5,7 @@ import { comBaseTemporaria } from './ajuda.js';
 import {
   guardar, ultimoVarrimento, ausenciasPorMac, contarVarrimentos, inventarioAtual,
   aprovarRede, redeAprovada, guardarLeitura, coberturaDosLogs, guardarTriagem,
+  ultimaTriagemValida, guardarNota, listarNotas, apagarNota, notasPorAlvo,
 } from '../src/historico.js';
 
 const aparelho = (mac, ip, extra = {}) => ({ mac, ip, portas: [], nome: null, ...extra });
@@ -93,4 +94,37 @@ test('a tabela triagens guarda o que foi enviado e também as falhas sem respost
         { varrimento_id: 1, entrada: '{"aparelhos":[]}', resposta: null, erro: 'recusa' },
       ],
     );
+  }));
+
+test('uma tabela triagens de antes das notas ganha a coluna das âncoras', () =>
+  comBaseTemporaria((abrirBase, ficheiro) => {
+    const antiga = new DatabaseSync(ficheiro);
+    antiga.exec(`CREATE TABLE triagens (id INTEGER PRIMARY KEY, data TEXT NOT NULL, varrimento_id INTEGER, modelo TEXT, entrada TEXT NOT NULL, resposta TEXT, erro TEXT);
+      INSERT INTO triagens VALUES (1, '2026-10-27T10:00:00Z', 1, 'm', '{}', '{"perguntas_ao_dono":["Quem foi?"]}', NULL);`);
+    antiga.close();
+    const db = abrirBase();
+    assert.deepEqual({ ...ultimaTriagemValida(db) }, { id: 1, data: '2026-10-27T10:00:00Z', resposta: '{"perguntas_ao_dono":["Quem foi?"]}', ancoras: null });
+  }));
+
+test('a última triagem válida ignora as que falharam', () =>
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
+    guardarTriagem(db, { varrimentoId: null, modelo: 'm', entrada: {}, resposta: '{"a":1}', erro: null, ancoras: { d1: { tipo: 'aparelho', alvo: 'aa' } } });
+    guardarTriagem(db, { varrimentoId: null, modelo: 'm', entrada: {}, resposta: null, erro: 'recusa' });
+    const t = ultimaTriagemValida(db);
+    assert.equal(t.resposta, '{"a":1}');
+    assert.deepEqual(JSON.parse(t.ancoras), { d1: { tipo: 'aparelho', alvo: 'aa' } });
+  }));
+
+test('as notas do dono guardam-se presas ao que falam e podem ser apagadas', () =>
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
+    const portatil = guardarNota(db, { alvoTipo: 'aparelho', alvo: '00:00:5e:00:53:dd', pergunta: 'De quem é?', texto: 'É de alguém de casa.' }, '2026-10-27T18:00:00Z');
+    guardarNota(db, { alvoTipo: 'alerta', alvo: 'rajada|este PC|2026-10-22T14:45:00.000Z', texto: 'Fui eu.' }, '2026-10-27T18:01:00Z');
+    guardarNota(db, { alvoTipo: 'geral', texto: 'Ninguém mais usa este PC.' }, '2026-10-27T18:02:00Z');
+
+    assert.deepEqual([...notasPorAlvo(db).keys()], ['aparelho:00:00:5e:00:53:dd', 'alerta:rajada|este PC|2026-10-22T14:45:00.000Z', 'geral:']);
+    assert.equal(apagarNota(db, portatil), true);
+    assert.equal(apagarNota(db, portatil), false);
+    assert.deepEqual(listarNotas(db).map((n) => n.texto), ['Fui eu.', 'Ninguém mais usa este PC.']);
   }));

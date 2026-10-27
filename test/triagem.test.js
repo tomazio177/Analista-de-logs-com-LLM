@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { comBaseTemporaria } from './ajuda.js';
-import { guardar, guardarLogins, guardarLeitura } from '../src/historico.js';
-import { recolher, triar, aplicarRegras, ErroTriagem, MODELO, DIAS } from '../src/triagem.js';
+import { guardar, guardarLogins, guardarLeitura, guardarNota } from '../src/historico.js';
+import { recolher, triar, aplicarRegras, alvoDaPergunta, ErroTriagem, MODELO, DIAS } from '../src/triagem.js';
 
 const FUSO = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const local = (iso) => new Date(iso).toLocaleString('sv-SE', { timeZone: FUSO });
@@ -164,4 +164,42 @@ test('um alerta da rede esquecido pelo modelo e um id inventado dão aviso', () 
   assert.equal(avisos.length, 2);
   assert.match(avisos[0], /"a9"/);
   assert.match(avisos[1], /a2 .*pelo menos media/);
+});
+
+test('as notas do dono seguem presas ao aparelho e ao episódio, e uma rajada nova não herda a nota da antiga', () =>
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
+    casaDeTeste(db);
+    guardarNota(db, { alvoTipo: 'aparelho', alvo: '02:00:00:00:00:45', texto: 'É o telemóvel da Ana.' }, '2026-10-27T18:00:00Z');
+    guardarNota(db, { alvoTipo: 'alerta', alvo: 'rajada|este PC|2026-10-22T14:45:00.000Z', texto: 'Fui eu.' }, '2026-10-27T18:01:00Z');
+    guardarNota(db, { alvoTipo: 'geral', texto: 'Só eu uso este PC.' }, '2026-10-27T18:02:00Z');
+    // Uma rajada nova, noutro dia, do mesmo programa.
+    guardarLogins(db, tentativas(6, { base: 40, quando: undefined }).map((l, i) => ({ ...l, quando: new Date(Date.parse('2026-10-26T09:00:00Z') + i * 1000).toISOString() })));
+
+    const { dados, ancoras } = recolher(db, AGORA);
+    const ana = dados.aparelhos.find((a) => a.ip === '192.168.1.69');
+    assert.deepEqual(ana.notas_do_dono, [{ quando: local('2026-10-27T18:00:00Z'), texto: 'É o telemóvel da Ana.' }]);
+    assert.equal(dados.aparelhos.find((a) => a.ip === '192.168.1.1').notas_do_dono, undefined);
+
+    const [antiga, nova] = dados.logins_falhados.alertas_das_regras;
+    assert.deepEqual(antiga.notas_do_dono.map((n) => n.texto), ['Fui eu.']);
+    assert.equal(nova.notas_do_dono, undefined);
+    assert.deepEqual(dados.notas_gerais.map((n) => n.texto), ['Só eu uso este PC.']);
+
+    assert.deepEqual(ancoras[ana.id], { tipo: 'aparelho', alvo: '02:00:00:00:00:45' });
+    assert.deepEqual(ancoras[antiga.id], { tipo: 'alerta', alvo: 'rajada|este PC|2026-10-22T14:45:00.000Z' });
+  }));
+
+test('a resposta a uma pergunta fica presa ao "sobre"; sem âncora conhecida, ou de triagens antigas, fica geral', () => {
+  const ancoras = { d2: { tipo: 'aparelho', alvo: '00:00:5e:00:53:dd' } };
+  assert.deepEqual(alvoDaPergunta({ pergunta: 'De quem é o portátil?', sobre: 'd2' }, ancoras), { alvoTipo: 'aparelho', alvo: '00:00:5e:00:53:dd', pergunta: 'De quem é o portátil?' });
+  assert.deepEqual(alvoDaPergunta({ pergunta: 'x', sobre: 'd9' }, ancoras), { alvoTipo: 'geral', alvo: null, pergunta: 'x' });
+  assert.deepEqual(alvoDaPergunta({ pergunta: 'x', sobre: null }, ancoras), { alvoTipo: 'geral', alvo: null, pergunta: 'x' });
+  assert.deepEqual(alvoDaPergunta('Quem estava ao PC?', null), { alvoTipo: 'geral', alvo: null, pergunta: 'Quem estava ao PC?' });
+});
+
+test('as perguntas ao dono têm de dizer de que falam', async () => {
+  await assert.rejects(triar({}, clienteFalso(texto({ ...valida, perguntas_ao_dono: ['De quem é?'] }))), ErroTriagem);
+  const { triagem } = await triar({}, clienteFalso(texto({ ...valida, perguntas_ao_dono: [{ pergunta: 'De quem é?', sobre: 'd2' }] })));
+  assert.equal(triagem.perguntas_ao_dono[0].sobre, 'd2');
 });

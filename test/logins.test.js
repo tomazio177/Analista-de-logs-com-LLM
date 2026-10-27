@@ -58,3 +58,9 @@ test('um login pela rede sem IP não conta como deste PC', () => {
   assert.equal(pelaRede.tipo, 'pela-rede');
   assert.equal(alertas(serie(RAJADA.tentativas, 1))[0].remoto, false);
 });
+
+test('duas rajadas da mesma origem em dias diferentes dão dois alertas: a maior não esconde a outra', () => {
+  const outroDia = serie(RAJADA.tentativas, 1).map((l, i) => ({ ...l, id: 100 + i, quando: new Date(Date.parse('2026-10-26T09:00:00Z') + i * 1000).toISOString() }));
+  const rajadas = alertas([...serie(28, 1.1), ...outroDia]).filter((a) => a.tipo === 'rajada');
+  assert.deepEqual(rajadas.map((a) => [a.n, a.de]), [[28, '2026-10-22T14:45:00.000Z'], [RAJADA.tentativas, '2026-10-26T09:00:00.000Z']]);
+});
