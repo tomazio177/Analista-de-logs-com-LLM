@@ -6,7 +6,7 @@ import { parseEnv } from 'node:util';
 import { abrir, inventarioAtual, loginsDesde, ausenciasPorMac } from './historico.js';
 import { macPrivado, interfaceLocal } from './rede.js';
 import { PORTAS } from './portas.js';
-import { completar, alertas, nomeDoProcesso } from './logins.js';
+import { completar, alertas, nomeDoProcesso, RITMO_DE_MAQUINA } from './logins.js';
 import { LIMITE_AUSENCIA } from './comparar.js';
 import { semApoioNosDados } from './verificar.js';
 
@@ -69,7 +69,9 @@ O teu trabalho é a triagem: explicar ao dono da casa, em português de Portugal
 - Cada achado separa três coisas, e o dono tem de conseguir ver de onde vem cada uma:
   - "nos_dados": só factos que estão nos dados, com os valores tal como lá aparecem (IP, porta, hora, contagem, nome, processo). Nada de interpretação: "12 tentativas do msedge.exe entre 14:45:03 e 14:45:20" é um facto; "o Edge tinha uma palavra-passe antiga guardada" já não é.
   - "conhecimento_geral": o que sabes de fora destes dados e estás a usar no raciocínio, como o serviço que costuma estar numa porta, o fabricante de um prefixo de MAC, como o Windows ou um browser se comportam. Cada item é sobre o mundo em geral, não sobre esta casa. Se não usaste nada, a lista fica vazia.
-  - "conclusao": o que se tira de juntar as duas, dizendo claramente o que é hipótese ("provavelmente", "não dá para confirmar").
+  - "conclusao": o que se tira de juntar as duas, dizendo claramente o que é hipótese ("provavelmente", "não dá para confirmar"). Não escrevas "os dados mostram" sobre algo que só vem do conhecimento geral.
+- Se o conhecimento geral parecer contradizer um facto dos dados, ganham os dados: aponta a contradição em vez de a resolver a favor do que sabes de fora.
+- Nos alertas de rajada, "ritmoDeMaquina": true quer dizer que a regra mediu ${RITMO_DE_MAQUINA} s ou menos entre tentativas, mais depressa do que uma pessoa consegue escrever uma palavra-passe. É a leitura das regras: um programa a repetir uma credencial, não alguém ao teclado.
 - Não inventes aparelhos, portas, horas ou eventos. Se um facto não está nos dados, não vai para "nos_dados".
 - A confiança mede o apoio nos dados: "alta" só quando a conclusão sai dos factos; quando depende sobretudo de conhecimento geral, no máximo "media". O resumo segue a mesma regra e não afirma nada que nenhum achado sustente.
 - Quando não dá para saber (por exemplo, que aparelho é um MAC privado sem nome), diz isso e põe a dúvida em "perguntas_ao_dono" em vez de adivinhar.

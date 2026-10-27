@@ -1,5 +1,5 @@
 import { lerLoginsFalhados, SEM_PERMISSAO } from './eventos.js';
-import { interpretar, alertas, nomeDoProcesso, RAJADA, RITMO_DE_MAQUINA } from './logins.js';
+import { interpretar, alertas, nomeDoProcesso, RAJADA } from './logins.js';
 import { abrir, guardarLogins, aparelhosPorIp } from './historico.js';
 
 const dias = Number(process.argv[2] ?? 7);
@@ -62,7 +62,7 @@ const lista = alertas(logins);
 const descrever = {
   rajada: (a) => {
     const minutos = Math.max(1, Math.round((Date.parse(a.ate) - Date.parse(a.de)) / 60_000));
-    const ritmo = a.segundosEntreTentativas <= RITMO_DE_MAQUINA
+    const ritmo = a.ritmoDeMaquina
       ? `uma a cada ${a.segundosEntreTentativas} s: ritmo de programa, não de pessoa`
       : `uma a cada ${Math.round(a.segundosEntreTentativas)} s`;
     return (

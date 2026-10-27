@@ -90,13 +90,16 @@ export function alertas(logins) {
     }
     if (pior) {
       const janela = ordenada.slice(pior.inicio, pior.fim + 1);
+      const segundos = intervaloMediano(janela);
       resultado.push({
         tipo: 'rajada',
         origem,
         n: pior.n,
         de: janela[0].quando,
         ate: janela.at(-1).quando,
-        segundosEntreTentativas: intervaloMediano(janela),
+        segundosEntreTentativas: segundos,
+        // A conclusão da regra vai com o alerta: só com o número, o LLM chegou a ler 1,1 s como uma pessoa a escrever.
+        ritmoDeMaquina: segundos <= RITMO_DE_MAQUINA,
         processos: [...new Set(janela.map((l) => nomeDoProcesso(l.processo) ?? 'desconhecido'))],
       });
     }
