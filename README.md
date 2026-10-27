@@ -44,6 +44,7 @@ Estas são as fontes de falsos positivos e falsos negativos — e a parte mais i
 - **Connect scan é ruidoso e lento.** Um scan SYN (como o do nmap) seria mais rápido, mas precisa de pacotes em bruto e privilégios de administrador.
 - **Só 18 portas.** Um serviço numa porta fora da lista passa despercebido.
 - **Sistema pelo TTL.** É uma adivinha: cerca de 64 costuma ser Linux, Android ou iPhone; cerca de 128, Windows; cerca de 255, routers e afins. Não distingue Android de iPhone, e aparelhos que só aparecem pela tabela ARP ficam sem TTL.
+- **O registo de Segurança do Windows esquece.** Tem 20 MB por omissão e é circular: quando enche, apaga os eventos mais antigos. Num PC de casa isso chegou a ser menos de 5 dias. Um login falhado só fica guardado se o `npm run logs` correr antes de o Windows o apagar. Cada leitura regista o evento mais antigo que ainda lá estava, e os intervalos que nenhuma leitura cobre aparecem como aviso no `npm run logs` e seguem para a triagem como "períodos sem registo". Para guardar mais tempo, aumenta o registo (como administrador): `wevtutil sl Security /ms:209715200` (200 MB).
 - **Nomes.** Dependem do router. Em alguns routers domésticos o DNS inverso devolve o nome de cada aparelho (`.lan`); noutros routers a maioria aparece sem nome.
 
 ## Roteiro

@@ -1,6 +1,6 @@
 import { lerLoginsFalhados, SEM_PERMISSAO } from './eventos.js';
 import { interpretar, alertas, nomeDoProcesso, RAJADA } from './logins.js';
-import { abrir, guardarLogins, aparelhosPorIp } from './historico.js';
+import { abrir, guardarLogins, aparelhosPorIp, guardarLeitura, coberturaDosLogs } from './historico.js';
 
 const dias = Number(process.argv[2] ?? 7);
 if (!Number.isInteger(dias) || dias < 1 || dias > 365) {
@@ -12,9 +12,9 @@ if (process.platform !== 'win32') {
   process.exit(1);
 }
 
-let brutos;
+let brutos, maisAntigo;
 try {
-  brutos = await lerLoginsFalhados(dias);
+  ({ eventos: brutos, maisAntigo } = await lerLoginsFalhados(dias));
 } catch (erro) {
   if (erro.code === SEM_PERMISSAO) {
     console.error('\nO Windows não deixa ler o registo de Segurança sem privilégios.');
@@ -27,6 +27,7 @@ try {
 const logins = brutos.map(interpretar).sort((a, b) => b.quando.localeCompare(a.quando));
 const db = abrir();
 const novos = guardarLogins(db, logins);
+guardarLeitura(db, new Date().toISOString(), maisAntigo);
 const aparelhos = aparelhosPorIp(db);
 
 const quando = (iso) => new Date(iso).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -37,6 +38,12 @@ const descreverOrigem = (origem) => {
 };
 
 console.log(`\nLogins falhados no Windows — últimos ${dias} dias: ${logins.length} eventos, ${novos.size} novos desde a última leitura\n`);
+
+const { buracos } = coberturaDosLogs(db, new Date(Date.now() - dias * 86_400_000).toISOString());
+for (const b of buracos) {
+  console.log(`⚠ De ${quando(b.de)} a ${quando(b.ate)} não há leitura que garanta os logins falhados: o registo de Segurança encheu e o Windows já apagou esse período.`);
+  console.log('  Se houve tentativas nesse intervalo, só estão na base de dados se uma versão anterior do programa as leu a tempo.\n');
+}
 
 if (!logins.length) {
   console.log('Nenhum. Para confirmar que o registo está a funcionar, provoca um de propósito:');

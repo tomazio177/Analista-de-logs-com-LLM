@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
-import { abrir, inventarioAtual, loginsDesde, ausenciasPorMac } from './historico.js';
-import { macPrivado, interfaceLocal } from './rede.js';
+import { abrir, inventarioAtual, loginsDesde, ausenciasPorMac, coberturaDosLogs } from './historico.js';
+import { macPrivado } from './rede.js';
 import { PORTAS } from './portas.js';
 import { completar, alertas, nomeDoProcesso, RITMO_DE_MAQUINA } from './logins.js';
 import { LIMITE_AUSENCIA } from './comparar.js';
@@ -71,6 +71,7 @@ O teu trabalho é a triagem: explicar ao dono da casa, em português de Portugal
   - "conhecimento_geral": o que sabes de fora destes dados e estás a usar no raciocínio, como o serviço que costuma estar numa porta, o fabricante de um prefixo de MAC, como o Windows ou um browser se comportam. Cada item é sobre o mundo em geral, não sobre esta casa. Se não usaste nada, a lista fica vazia.
   - "conclusao": o que se tira de juntar as duas, dizendo claramente o que é hipótese ("provavelmente", "não dá para confirmar"). Não escrevas "os dados mostram" sobre algo que só vem do conhecimento geral.
 - Se o conhecimento geral parecer contradizer um facto dos dados, ganham os dados: aponta a contradição em vez de a resolver a favor do que sabes de fora.
+- Os logins falhados só cobrem o que alguma leitura apanhou. Em "periodos_sem_registo" não há leitura que cubra o intervalo (o Windows apaga os eventos antigos quando o registo enche), e depois de "ultima_leitura" ainda nada foi lido; se "ultima_leitura" for null, não se sabe quando os logs foram lidos. Nesses casos não afirmes que não houve tentativas: diz que não se sabe.
 - Nos alertas de rajada, "ritmoDeMaquina": true quer dizer que a regra mediu ${RITMO_DE_MAQUINA} s ou menos entre tentativas, mais depressa do que uma pessoa consegue escrever uma palavra-passe. É a leitura das regras: um programa a repetir uma credencial, não alguém ao teclado.
 - Não inventes aparelhos, portas, horas ou eventos. Se um facto não está nos dados, não vai para "nos_dados".
 - A confiança mede o apoio nos dados: "alta" só quando a conclusão sai dos factos; quando depende sobretudo de conhecimento geral, no máximo "media". O resumo segue a mesma regra e não afirma nada que nenhum achado sustente.
@@ -118,12 +119,7 @@ function recolher(db) {
   const logins = loginsDesde(db, desde).map(completar);
   const ausentes = [...ausenciasPorMac(db, inventario.rede)].filter(([, a]) => a.faltas >= LIMITE_AUSENCIA);
 
-  // A triagem corre no mesmo PC que faz os varrimentos e onde estão os logins.
-  let ipDestePc = null;
-  try {
-    ipDestePc = interfaceLocal().ip;
-  } catch {}
-
+  const cobertura = coberturaDosLogs(db, desde);
   const historico = db.prepare('SELECT COUNT(*) AS n, MIN(data) AS primeiro FROM varrimentos WHERE rede = ?').get(inventario.rede);
 
   return {
@@ -136,7 +132,8 @@ function recolher(db) {
     // Só o prefixo do fabricante (3 primeiros octetos): o MAC completo não ajuda a triagem e identifica o aparelho.
     aparelhos: inventario.aparelhos.toSorted((a, b) => ordemIp(a.ip) - ordemIp(b.ip)).map((a) => ({
       ip: a.ip,
-      este_pc: a.ip === ipDestePc,
+      // Vem do varrimento: o IP atual do PC pode já não ser o que tinha quando varreu.
+      este_pc: a.proprio === 1,
       nome: a.nome,
       fabricante_mac: macPrivado(a.mac) ? null : a.mac.slice(0, 8),
       mac_privado: macPrivado(a.mac),
@@ -146,6 +143,9 @@ function recolher(db) {
     aparelhos_desaparecidos: ausentes.map(([, a]) => ({ ultimo_ip: a.ip, varrimentos_sem_resposta: a.faltas })),
     logins_falhados: {
       periodo_dias: DIAS,
+      // O que se viu de facto: o registo do Windows apaga eventos antigos e só se sabe o que alguma leitura apanhou.
+      ultima_leitura: local(cobertura.ultimaLeitura),
+      periodos_sem_registo: cobertura.buracos.map((b) => ({ de: local(b.de), ate: local(b.ate) })),
       total: logins.length,
       agrupados: agruparLogins(logins),
       alertas_das_regras: alertas(logins).map((a) => ({ ...a, de: local(a.de), ate: local(a.ate) })),

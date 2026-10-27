@@ -27,6 +27,10 @@ export function abrir(ficheiro = FICHEIRO) {
       portas         TEXT NOT NULL,
       PRIMARY KEY (varrimento_id, mac)
     );
+    CREATE TABLE IF NOT EXISTS leituras_logs (
+      data         TEXT NOT NULL,
+      mais_antigo  TEXT
+    );
     CREATE TABLE IF NOT EXISTS logins_falhados (
       record_id   INTEGER NOT NULL,
       quando      TEXT NOT NULL,
@@ -39,6 +43,10 @@ export function abrir(ficheiro = FICHEIRO) {
       PRIMARY KEY (record_id, quando)
     );
   `);
+  // Bases criadas antes de se guardar qual é este PC em cada varrimento.
+  if (!db.prepare('PRAGMA table_info(observacoes)').all().some((c) => c.name === 'proprio')) {
+    db.exec('ALTER TABLE observacoes ADD COLUMN proprio INTEGER NOT NULL DEFAULT 0');
+  }
   return db;
 }
 
@@ -75,7 +83,7 @@ export function ultimoVarrimento(db, rede) {
 
 export function guardar(db, rede, aparelhos, data = new Date().toISOString()) {
   const novoVarrimento = db.prepare('INSERT INTO varrimentos (data, rede) VALUES (?, ?)');
-  const observacao = db.prepare('INSERT INTO observacoes (varrimento_id, mac, ip, portas) VALUES (?, ?, ?, ?)');
+  const observacao = db.prepare('INSERT INTO observacoes (varrimento_id, mac, ip, portas, proprio) VALUES (?, ?, ?, ?, ?)');
   const dispositivo = db.prepare(`
     INSERT INTO dispositivos (mac, primeiro_visto, ultimo_visto, ultimo_ip, nome)
     VALUES (?, ?, ?, ?, ?)
@@ -89,7 +97,7 @@ export function guardar(db, rede, aparelhos, data = new Date().toISOString()) {
   try {
     const { lastInsertRowid: id } = novoVarrimento.run(data, rede);
     for (const a of aparelhos) {
-      observacao.run(id, a.mac, a.ip, JSON.stringify(a.portas));
+      observacao.run(id, a.mac, a.ip, JSON.stringify(a.portas), a.proprio ? 1 : 0);
       dispositivo.run(a.mac, data, data, a.ip, a.nome);
     }
     db.exec('COMMIT');
@@ -133,7 +141,7 @@ export function inventarioAtual(db) {
   const v = db.prepare('SELECT id, data, rede FROM varrimentos ORDER BY id DESC LIMIT 1').get();
   if (!v) return null;
   const aparelhos = db.prepare(`
-    SELECT o.ip, o.mac, o.portas, d.nome, d.primeiro_visto
+    SELECT o.ip, o.mac, o.portas, o.proprio, d.nome, d.primeiro_visto
     FROM observacoes o JOIN dispositivos d ON d.mac = o.mac
     WHERE o.varrimento_id = ?
   `).all(v.id).map((a) => ({ ...a, portas: JSON.parse(a.portas) }));
@@ -145,4 +153,26 @@ export function loginsDesde(db, desde) {
     SELECT record_id AS id, quando, utilizador, tipo, codigo, ip, estacao, processo
     FROM logins_falhados WHERE quando >= ? ORDER BY quando
   `).all(desde);
+}
+
+// Cada leitura dos logs guarda até onde o registo do Windows chegava nesse momento.
+export function guardarLeitura(db, data, maisAntigo) {
+  db.prepare('INSERT INTO leituras_logs (data, mais_antigo) VALUES (?, ?)').run(data, maisAntigo);
+}
+
+// Intervalos desde `desde` em que o Windows apagou eventos antes de uma leitura os apanhar:
+// uma leitura cujo evento mais antigo é posterior à leitura anterior (ou ao início do período, na primeira) deixa um buraco.
+// Leituras feitas antes de existir esta tabela não contam, por isso o início tende a aparecer como buraco: é o lado seguro.
+export function coberturaDosLogs(db, desde) {
+  const leituras = db.prepare('SELECT data, mais_antigo FROM leituras_logs ORDER BY data').all();
+  const buracos = [];
+  let coberto = null;
+  for (const l of leituras) {
+    const inicio = coberto ?? desde;
+    if (l.mais_antigo && l.mais_antigo > inicio && l.mais_antigo > desde) {
+      buracos.push({ de: inicio > desde ? inicio : desde, ate: l.mais_antigo });
+    }
+    coberto = l.data;
+  }
+  return { ultimaLeitura: coberto, buracos };
 }
