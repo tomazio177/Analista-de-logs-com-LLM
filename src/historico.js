@@ -32,6 +32,15 @@ export function abrir(ficheiro = FICHEIRO) {
       rede         TEXT NOT NULL,
       aprovada_em  TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS triagens (
+      id             INTEGER PRIMARY KEY,
+      data           TEXT NOT NULL,
+      varrimento_id  INTEGER REFERENCES varrimentos(id),
+      modelo         TEXT,
+      entrada        TEXT NOT NULL,
+      resposta       TEXT,
+      erro           TEXT
+    );
     CREATE TABLE IF NOT EXISTS leituras_logs (
       data         TEXT NOT NULL,
       mais_antigo  TEXT
@@ -200,4 +209,11 @@ export function coberturaDosLogs(db, desde) {
     coberto = l.data;
   }
   return { ultimaLeitura: coberto, buracos };
+}
+
+// Cada triagem fica guardada com o que foi enviado e o texto devolvido, tal e qual, mesmo quando falha:
+// dá para ver mais tarde o que o modelo disse e com que dados.
+export function guardarTriagem(db, { varrimentoId, modelo, entrada, resposta, erro }, data = new Date().toISOString()) {
+  db.prepare('INSERT INTO triagens (data, varrimento_id, modelo, entrada, resposta, erro) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(data, varrimentoId, modelo, JSON.stringify(entrada), resposta, erro);
 }

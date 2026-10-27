@@ -1,48 +1,15 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { existsSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { parseEnv } from 'node:util';
-import { abrir, inventarioAtual, loginsDesde, ausenciasPorMac, coberturaDosLogs, contarVarrimentos } from './historico.js';
+import { inventarioAtual, loginsDesde, ausenciasPorMac, coberturaDosLogs, contarVarrimentos } from './historico.js';
 import { macPrivado } from './rede.js';
 import { PORTAS } from './portas.js';
 import { completar, alertas, nomeDoProcesso, RITMO_DE_MAQUINA } from './logins.js';
 import { LIMITE_AUSENCIA } from './comparar.js';
-import { semApoioNosDados } from './verificar.js';
 
-// A chave da API vem do ficheiro .env (fora do git). Sem .env, fica a que estiver no ambiente.
-// No Windows o .env costuma sair do Bloco de Notas como ".env.txt", ou do PowerShell em UTF-16 ou com BOM;
-// em vez de falhar em silêncio, lê esses casos ou diz o que está mal.
-const PASTA = new URL('../', import.meta.url);
-const problemaEnv = carregarEnv();
-
-function carregarEnv() {
-  const env = new URL('.env', PASTA);
-  if (!existsSync(env)) {
-    return existsSync(new URL('.env.txt', PASTA))
-      ? 'O ficheiro chama-se ".env.txt". Muda-lhe o nome: Rename-Item .env.txt .env'
-      : `Não há ficheiro .env em ${fileURLToPath(PASTA)}`;
-  }
-  const bytes = readFileSync(env);
-  let texto;
-  if (bytes[0] === 0xff && bytes[1] === 0xfe) texto = bytes.subarray(2).toString('utf16le');
-  else if (bytes[0] === 0xfe && bytes[1] === 0xff) return 'O .env está em UTF-16 big-endian. Grava-o outra vez em UTF-8.';
-  else texto = bytes.toString('utf8').replace(/^\uFEFF/, '');
-
-  const valores = parseEnv(texto);
-  for (const [nome, valor] of Object.entries(valores)) process.env[nome] ??= valor.trim();
-  if (!('ANTHROPIC_API_KEY' in valores)) {
-    const nomes = Object.keys(valores).join(', ') || 'nenhuma';
-    return `O .env existe mas não tem a variável ANTHROPIC_API_KEY (variáveis encontradas: ${nomes}).`;
-  }
-  return null;
-}
-
-const MODELO = 'claude-opus-5-5';
-const DIAS = 7;
+export const MODELO = 'claude-opus-5-5';
+export const DIAS = 7;
 
 // O que o modelo tem de devolver. A API garante o formato (structured outputs); o Zod confirma-o do nosso lado.
-const Triagem = z.strictObject({
+export const Triagem = z.strictObject({
   nivel_geral: z.enum(['tranquilo', 'atencao', 'urgente']),
   resumo: z.string(),
   achados: z.array(
@@ -61,7 +28,7 @@ const Triagem = z.strictObject({
   perguntas_ao_dono: z.array(z.string()),
 });
 
-const SISTEMA = `És o analista de segurança de uma rede doméstica em Portugal. Recebes o inventário do último varrimento da rede e os logins falhados do Windows do PC que faz os varrimentos (o aparelho com "este_pc": true), já com alertas calculados por regras fixas.
+export const SISTEMA = `És o analista de segurança de uma rede doméstica em Portugal. Recebes o inventário do último varrimento da rede e os logins falhados do Windows do PC que faz os varrimentos (o aparelho com "este_pc": true), já com alertas calculados por regras fixas.
 
 O teu trabalho é a triagem: explicar ao dono da casa, em português de Portugal e sem jargão (as horas nos dados já estão na hora local), o que merece atenção e porquê.
 
@@ -111,11 +78,12 @@ function agruparLogins(logins) {
 
 const ordemIp = (ip) => ip.split('.').reduce((n, o) => n * 256 + Number(o), 0);
 
-function recolher(db) {
+// Junta o que segue para o modelo. Devolve null se ainda não houver varrimentos.
+export function recolher(db, agora = new Date()) {
   const inventario = inventarioAtual(db);
   if (!inventario) return null;
 
-  const desde = new Date(Date.now() - DIAS * 86_400_000).toISOString();
+  const desde = new Date(agora.getTime() - DIAS * 86_400_000).toISOString();
   const logins = loginsDesde(db, desde).map(completar);
   const rede = { cidr: inventario.rede, router: inventario.router_mac };
   const ausentes = [...ausenciasPorMac(db, rede)].filter(([, a]) => a.faltas >= LIMITE_AUSENCIA);
@@ -123,8 +91,8 @@ function recolher(db) {
   const cobertura = coberturaDosLogs(db, desde);
   const historico = contarVarrimentos(db, rede);
 
-  return {
-    agora: local(new Date().toISOString()),
+  const dados = {
+    agora: local(agora.toISOString()),
     fuso_horario: FUSO,
     rede: inventario.rede,
     // Com poucos varrimentos, "visto pela primeira vez" diz mais sobre quando a vigilância começou do que sobre o aparelho.
@@ -152,38 +120,23 @@ function recolher(db) {
       alertas_das_regras: alertas(logins).map((a) => ({ ...a, de: local(a.de), ate: local(a.ate) })),
     },
   };
+  return { varrimentoId: inventario.id, dados };
 }
 
-const db = abrir();
-const dados = recolher(db);
-if (!dados) {
-  console.error('\nAinda não há varrimentos guardados. Corre primeiro: npm run scan\n');
-  process.exit(1);
-}
 
-// Mostra exatamente o que seria enviado, sem gastar nada.
-if (process.argv.includes('--ver-dados')) {
-  console.log(JSON.stringify(dados, null, 2));
-  process.exit(0);
+export class ErroTriagem extends Error {
+  constructor(mensagem, bruto = null) {
+    super(mensagem);
+    this.bruto = bruto; // o texto do modelo, quando o houve, para ficar guardado com o erro
+  }
 }
-
-if (!process.env.ANTHROPIC_API_KEY) {
-  if (problemaEnv) console.error(`\n${problemaEnv}`);
-  console.error('\nFalta a chave da API. Cria um ficheiro .env na pasta do projeto com uma linha:');
-  console.error('  ANTHROPIC_API_KEY=sk-ant-...');
-  console.error('O .env já está no .gitignore, por isso não vai parar ao GitHub.\n');
-  process.exit(1);
-}
-
-console.log(`\nA enviar ${dados.aparelhos.length} aparelhos e ${dados.logins_falhados.total} logins falhados para triagem…`);
 
 const esquema = z.toJSONSchema(Triagem);
 delete esquema.$schema;
 
-const client = new Anthropic();
-let resposta;
-try {
-  resposta = await client.beta.messages.create({
+// Pede a triagem ao modelo e valida a resposta. O cliente vem de fora para os testes poderem usar um falso.
+export async function triar(dados, cliente) {
+  const resposta = await cliente.beta.messages.create({
     model: MODELO,
     max_tokens: 16000,
     // Se os filtros de segurança do modelo recusarem (dados de segurança podem parecer suspeitos),
@@ -194,57 +147,25 @@ try {
     system: SISTEMA,
     messages: [{ role: 'user', content: `<dados>\n${JSON.stringify(dados, null, 2)}\n</dados>` }],
   });
-} catch (erro) {
-  if (erro instanceof Anthropic.AuthenticationError) console.error('\nA chave da API foi recusada. Confirma o valor no .env.\n');
-  else if (erro instanceof Anthropic.RateLimitError) console.error('\nLimite de pedidos atingido. Tenta daqui a um minuto.\n');
-  else if (erro instanceof Anthropic.APIError) console.error(`\nErro da API (${erro.status}): ${erro.message}\n`);
-  else throw erro;
-  process.exit(1);
-}
 
-if (resposta.stop_reason === 'refusal') {
-  console.error(`\nO modelo recusou fazer a triagem (${resposta.stop_details?.category ?? 'sem categoria'}).\n`);
-  process.exit(1);
-}
-if (resposta.stop_reason === 'max_tokens') {
-  console.error('\nA resposta foi cortada a meio (limite de tokens). Não dá para confiar nela.\n');
-  process.exit(1);
-}
-
-const texto = resposta.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
-const validado = Triagem.safeParse(JSON.parse(texto));
-if (!validado.success) {
-  console.error('\nA resposta do modelo não tem o formato esperado:');
-  console.error(z.prettifyError(validado.error));
-  process.exit(1);
-}
-mostrar(validado.data);
-
-function mostrar(t) {
-  const NIVEL = { tranquilo: '✓ TRANQUILO', atencao: '! ATENÇÃO', urgente: '!! URGENTE' };
-  const ORDEM = { alta: 0, media: 1, baixa: 2, info: 3 };
-  const GRAVIDADE = { alta: 'ALTA ', media: 'MÉDIA', baixa: 'BAIXA', info: 'INFO ' };
-
-  console.log(`\n${NIVEL[t.nivel_geral]}\n\n${t.resumo}\n`);
-  for (const a of t.achados.toSorted((x, y) => ORDEM[x.gravidade] - ORDEM[y.gravidade])) {
-    console.log(`[${GRAVIDADE[a.gravidade]}] ${a.titulo}   (confiança ${a.confianca})`);
-    console.log('  Nos dados:');
-    for (const f of a.nos_dados) console.log(`    · ${f}`);
-    if (a.conhecimento_geral.length) {
-      console.log('  Conhecimento geral (não vem dos teus dados):');
-      for (const c of a.conhecimento_geral) console.log(`    · ${c}`);
-    }
-    console.log(`  Conclusão:   ${a.conclusao}`);
-    console.log(`  O que fazer: ${a.acao_sugerida}`);
-    const falta = semApoioNosDados(a.nos_dados, dados);
-    if (falta.length) console.log(`  ⚠ Citado como facto mas não está nos dados enviados: ${falta.join(', ')}`);
-    console.log();
+  const texto = resposta.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+  if (resposta.stop_reason === 'refusal') {
+    throw new ErroTriagem(`O modelo recusou fazer a triagem (${resposta.stop_details?.category ?? 'sem categoria'}).`);
   }
-  if (t.perguntas_ao_dono.length) {
-    console.log('Perguntas que só tu sabes responder:');
-    for (const p of t.perguntas_ao_dono) console.log(`  - ${p}`);
-    console.log();
+  if (resposta.stop_reason === 'max_tokens') {
+    throw new ErroTriagem('A resposta foi cortada a meio (limite de tokens). Não dá para confiar nela.', texto);
   }
-  const u = resposta.usage;
-  console.log(`(${resposta.model}: ${u.input_tokens} tokens de entrada, ${u.output_tokens} de saída)\n`);
+  if (!texto) throw new ErroTriagem('A resposta não trouxe texto.');
+
+  let json;
+  try {
+    json = JSON.parse(texto);
+  } catch {
+    throw new ErroTriagem('A resposta não é JSON válido.', texto);
+  }
+  const validado = Triagem.safeParse(json);
+  if (!validado.success) {
+    throw new ErroTriagem(`A resposta do modelo não tem o formato esperado:\n${z.prettifyError(validado.error)}`, texto);
+  }
+  return { triagem: validado.data, modelo: resposta.model, bruto: texto, uso: resposta.usage };
 }
