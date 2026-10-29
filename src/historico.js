@@ -252,13 +252,3 @@ export function guardarNota(db, { alvoTipo, alvo = null, pergunta = null, texto,
 export const listarNotas = (db) => db.prepare('SELECT id, data, alvo_tipo, alvo, pergunta, texto, triagem_id FROM notas ORDER BY id').all();
 
 export const apagarNota = (db, id) => db.prepare('DELETE FROM notas WHERE id = ?').run(id).changes > 0;
-
-// "tipo:alvo" → notas, para juntar a cada aparelho e alerta nos dados da triagem.
-export function notasPorAlvo(db) {
-  const mapa = new Map();
-  for (const n of listarNotas(db)) {
-    const chave = `${n.alvo_tipo}:${n.alvo ?? ''}`;
-    mapa.set(chave, [...(mapa.get(chave) ?? []), { quando: n.data, texto: n.texto }]);
-  }
-  return mapa;
-}

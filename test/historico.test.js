@@ -5,7 +5,7 @@ import { comBaseTemporaria } from './ajuda.js';
 import {
   guardar, ultimoVarrimento, ausenciasPorMac, contarVarrimentos, inventarioAtual,
   aprovarRede, redeAprovada, guardarLeitura, coberturaDosLogs, guardarTriagem,
-  ultimaTriagemValida, guardarNota, listarNotas, apagarNota, notasPorAlvo,
+  ultimaTriagemValida, guardarNota, listarNotas, apagarNota,
 } from '../src/historico.js';
 
 const aparelho = (mac, ip, extra = {}) => ({ mac, ip, portas: [], nome: null, ...extra });
@@ -123,7 +123,7 @@ test('as notas do dono guardam-se presas ao que falam e podem ser apagadas', () 
     guardarNota(db, { alvoTipo: 'alerta', alvo: 'rajada|este PC|2026-10-22T14:45:00.000Z', texto: 'Fui eu.' }, '2026-10-27T18:01:00Z');
     guardarNota(db, { alvoTipo: 'geral', texto: 'Ninguém mais usa este PC.' }, '2026-10-27T18:02:00Z');
 
-    assert.deepEqual([...notasPorAlvo(db).keys()], ['aparelho:00:00:5e:00:53:dd', 'alerta:rajada|este PC|2026-10-22T14:45:00.000Z', 'geral:']);
+    assert.deepEqual(listarNotas(db).map((n) => [n.alvo_tipo, n.alvo]), [['aparelho', '00:00:5e:00:53:dd'], ['alerta', 'rajada|este PC|2026-10-22T14:45:00.000Z'], ['geral', null]]);
     assert.equal(apagarNota(db, portatil), true);
     assert.equal(apagarNota(db, portatil), false);
     assert.deepEqual(listarNotas(db).map((n) => n.texto), ['Fui eu.', 'Ninguém mais usa este PC.']);

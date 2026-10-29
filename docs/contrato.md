@@ -45,7 +45,7 @@ Os objetos dentro das listas:
 - **login**: `quando`, `utilizador`, `tipo`, `motivo`, `origem` (IP, `este PC` ou `rede (IP desconhecido)`), `aparelho_de_origem {mac, nome}` (ou `null`), `processo`, `novo`.
 - **alerta**: `tipo` (`rajada`, `pela-rede`, `utilizador-inexistente`), `origem`, `remoto`, `n`, `de`, `ate`, `gravidadeMinima` (ou `null` nos alertas deste PC), `aparelho_de_origem`; nas rajadas também `segundosEntreTentativas`, `ritmoDeMaquina` e `processos[]`; nos outros, `utilizadores[]`. Estes vêm das regras com os nomes que lá têm (em camelCase).
 - **achado**: `titulo`, `gravidade` (`info`, `baixa`, `media`, `alta`), `gravidade_do_modelo` (só quando as regras a subiram), `alertas_relacionados[]`, `nos_dados[]`, `conhecimento_geral[]`, `conclusao`, `acao_sugerida`, `confianca`, `factos_sem_apoio[]` (IPs, horas e portas citados como factos que não estão nos dados: mostra-os como aviso).
-- **pergunta**: `n` (o número a usar em `--pergunta`), `pergunta`, `sobre {tipo, alvo}` (ou `null`), `respondida`.
+- **pergunta**: `n` (o número a usar em `--pergunta`), `pergunta`, `sobre {tipo, alvo}` (ou `null`), `respondida`, `resposta {texto, data}` (a resposta mais recente do dono sobre o mesmo aparelho ou episódio, dada nesta triagem ou numa anterior; `null` se não houver).
 - **resposta**: `id`, `data`, `sobre {tipo, alvo}` (ou `null`), `pergunta`, `texto`.
 
 ## Códigos de erro

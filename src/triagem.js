@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { inventarioAtual, loginsDesde, ausenciasPorMac, coberturaDosLogs, contarVarrimentos, notasPorAlvo } from './historico.js';
+import { inventarioAtual, loginsDesde, ausenciasPorMac, coberturaDosLogs, contarVarrimentos, listarNotas } from './historico.js';
 import { macPrivado } from './rede.js';
 import { PORTAS } from './portas.js';
-import { completar, alertas, nomeDoProcesso, RITMO_DE_MAQUINA } from './logins.js';
+import { completar, alertas, nomeDoProcesso, RITMO_DE_MAQUINA, RAJADA } from './logins.js';
 import { LIMITE_AUSENCIA } from './comparar.js';
 
 export const MODELO = 'claude-opus-5-5';
@@ -89,8 +89,34 @@ function agruparLogins(logins) {
   return [...grupos.values()];
 }
 
-// O mesmo episódio tem a mesma chave em todas as triagens enquanto as tentativas estiverem no período analisado.
-const chaveDoAlerta = (a) => `${a.tipo}|${a.origem}|${a.de}`;
+// Um alerta fica identificado pelo tipo, a origem e o intervalo em que aconteceu.
+const chaveDoAlerta = (a) => `${a.tipo}|${a.origem}|${a.de}|${a.ate}`;
+
+// Duas chaves falam do mesmo episódio se forem do mesmo tipo e origem e os intervalos se tocarem, com a folga da janela
+// da rajada. Comparar a hora exata de início não chega: quando o período analisado corta o início do episódio, ou quando
+// chegam mais tentativas dele, o início muda e a resposta do dono deixava de lhe corresponder.
+// As chaves antigas não tinham o fim: conta só o início.
+export function mesmoEpisodio(a, b) {
+  const [tipoA, origemA, deA, ateA = deA] = a.split('|');
+  const [tipoB, origemB, deB, ateB = deB] = b.split('|');
+  if (tipoA !== tipoB || origemA !== origemB) return false;
+  const folga = RAJADA.minutos * 60_000;
+  return Date.parse(deA) - folga <= Date.parse(ateB) && Date.parse(deB) - folga <= Date.parse(ateA);
+}
+
+// A resposta mais recente do dono sobre o mesmo alvo, dada em qualquer triagem. Uma pergunta sobre um aparelho ou
+// um alerta já respondido conta como respondida, mesmo que o modelo a escreva de outra maneira. As perguntas gerais,
+// sem alvo, só contam se o texto for o mesmo.
+export function respostaAnterior(notas, { alvoTipo, alvo, pergunta }) {
+  const normal = (t) => t?.trim().toLowerCase();
+  const mesma = (n) => {
+    if (n.alvo_tipo !== alvoTipo) return false;
+    if (alvoTipo === 'aparelho') return n.alvo === alvo;
+    if (alvoTipo === 'alerta') return mesmoEpisodio(n.alvo, alvo);
+    return Boolean(n.pergunta) && normal(n.pergunta) === normal(pergunta);
+  };
+  return notas.filter(mesma).at(-1) ?? null;
+}
 
 const ordemIp = (ip) => ip.split('.').reduce((n, o) => n * 256 + Number(o), 0);
 
@@ -105,8 +131,9 @@ export function recolher(db, agora = new Date()) {
   const ausentes = [...ausenciasPorMac(db, rede)].filter(([, a]) => a.faltas >= LIMITE_AUSENCIA);
 
   const cobertura = coberturaDosLogs(db, desde);
-  const notas = notasPorAlvo(db);
-  const comNotas = (chave) => (notas.has(chave) ? { notas_do_dono: notas.get(chave).map((n) => ({ quando: local(n.quando), texto: n.texto })) } : {});
+  const notas = listarNotas(db);
+  const comNotas = (lista) => (lista.length ? { notas_do_dono: lista.map((n) => ({ quando: local(n.data), texto: n.texto })) } : {});
+  const gerais = notas.filter((n) => n.alvo_tipo === 'geral');
   // Cada id dos dados ("d1", "a1"…) aponta para algo que dura entre triagens: o MAC do aparelho ou a chave do alerta.
   const ancoras = {};
   const aparelhos = inventario.aparelhos.toSorted((a, b) => ordemIp(a.ip) - ordemIp(b.ip));
@@ -136,7 +163,7 @@ export function recolher(db, agora = new Date()) {
       mac_privado: macPrivado(a.mac),
       portas_abertas: a.portas.map((p) => `${p} ${PORTAS[p]}`),
       visto_pela_primeira_vez: local(a.primeiro_visto),
-      ...comNotas(`aparelho:${a.mac}`),
+      ...comNotas(notas.filter((n) => n.alvo_tipo === 'aparelho' && n.alvo === a.mac)),
     })),
     aparelhos_desaparecidos: ausentes.map(([, a]) => ({ ultimo_ip: a.ip, varrimentos_sem_resposta: a.faltas })),
     logins_falhados: {
@@ -153,10 +180,10 @@ export function recolher(db, agora = new Date()) {
         ate: local(a.ate),
         ...(utilizadores && (a.remoto ? { utilizadores } : { utilizadores_distintos: utilizadores.length })),
         gravidade_minima: gravidadeMinima,
-        ...comNotas(`alerta:${chaveDoAlerta(a)}`),
+        ...comNotas(notas.filter((n) => n.alvo_tipo === 'alerta' && mesmoEpisodio(n.alvo, chaveDoAlerta(a)))),
       })),
     },
-    ...(notas.has('geral:') && { notas_gerais: comNotas('geral:').notas_do_dono }),
+    ...(gerais.length && { notas_gerais: comNotas(gerais).notas_do_dono }),
   };
   return { varrimentoId: inventario.id, dados, ancoras };
 }

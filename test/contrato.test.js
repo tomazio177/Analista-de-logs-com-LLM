@@ -85,13 +85,14 @@ test('responder sem conversa: a pergunta fica respondida e a resposta presa ao a
     assert.deepEqual(respostas(db).respostas, []);
   }));
 
-test('as respostas de antes da ligação à triagem continuam a aparecer, sem contar como respondidas', () =>
+test('uma resposta antiga, de antes da ligação à triagem, conta como respondida quando a pergunta é a mesma', () =>
   comBaseTemporaria(async (abrirBase) => {
     const db = abrirBase();
     casa(db);
     await fazerTriagem(db, { cliente: clienteFalso(resposta) });
     guardarNota(db, { alvoTipo: 'geral', pergunta: 'Mais alguém usa este PC?', texto: 'Não.' });
-    assert.deepEqual(perguntas(db).perguntas.map((p) => p.respondida), [false, false]);
+    assert.deepEqual(perguntas(db).perguntas.map((p) => p.respondida), [false, true]);
+    assert.equal(perguntas(db).perguntas[1].resposta.texto, 'Não.');
     assert.equal(respostas(db).respostas.length, 1);
   }));
 
@@ -118,4 +119,19 @@ test('a última triagem sai da base de dados com as respostas já refletidas, se
     // E pelo comando, como a app a vai pedir ao abrir.
     const doComando = await comando(ficheiro, 'triar.js', '--ultima');
     assert.equal(doComando.documento.achados[0].titulo, 'Portátil novo');
+  }));
+
+test('uma triagem nova que volta a perguntar sobre um aparelho já respondido mostra a resposta, e não pede outra', () =>
+  comBaseTemporaria(async (abrirBase) => {
+    const db = abrirBase();
+    casa(db);
+    await fazerTriagem(db, { cliente: clienteFalso(resposta) });
+    responder(db, { n: 1, texto: 'É de alguém de casa.' });
+
+    // O modelo pergunta outra vez pelo portátil, com outras palavras.
+    const outraVez = { ...resposta, perguntas_ao_dono: [{ pergunta: 'Reconheces o LAPTOP-AB12CD34?', sobre: 'd2' }] };
+    const nova = await fazerTriagem(db, { cliente: clienteFalso(outraVez) });
+    assert.notEqual(nova.triagem_id, 1);
+    assert.equal(nova.perguntas[0].respondida, true);
+    assert.equal(nova.perguntas[0].resposta.texto, 'É de alguém de casa.');
   }));

@@ -6,7 +6,7 @@ import { emParalelo } from './util.js';
 import { compararVarrimentos } from './comparar.js';
 import { lerLoginsFalhados, SEM_PERMISSAO } from './eventos.js';
 import { interpretar, alertas, nomeDoProcesso, SEM_IP } from './logins.js';
-import { recolher, triar, aplicarRegras, alvoDaPergunta, ErroTriagem, MODELO } from './triagem.js';
+import { recolher, triar, aplicarRegras, alvoDaPergunta, respostaAnterior, ErroTriagem, MODELO } from './triagem.js';
 import { semApoioNosDados } from './verificar.js';
 import { carregarEnv } from './env.js';
 import {
@@ -204,14 +204,16 @@ export function ultimaTriagem(db) {
 function perguntasDe(db, triagem) {
   const perguntas = JSON.parse(triagem.resposta).perguntas_ao_dono ?? [];
   const ancoras = triagem.ancoras && JSON.parse(triagem.ancoras);
-  const respondidas = new Set(listarNotas(db).filter((n) => n.triagem_id === triagem.id).map((n) => n.pergunta));
+  const notas = listarNotas(db);
   return perguntas.map((p, i) => {
     const alvo = alvoDaPergunta(p, ancoras);
+    const anterior = respostaAnterior(notas, alvo);
     return {
       n: i + 1,
       pergunta: alvo.pergunta,
       sobre: alvo.alvoTipo === 'geral' ? null : { tipo: alvo.alvoTipo, alvo: alvo.alvo },
-      respondida: respondidas.has(alvo.pergunta),
+      respondida: Boolean(anterior),
+      resposta: anterior && { texto: anterior.texto, data: anterior.data },
     };
   });
 }

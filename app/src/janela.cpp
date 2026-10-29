@@ -467,7 +467,9 @@ QWidget *JanelaPrincipal::cartaoDaPergunta(const QJsonObject &p)
     v->addWidget(etiqueta(p.value(QStringLiteral("pergunta")).toString(), true));
 
     if (p.value(QStringLiteral("respondida")).toBool()) {
-        v->addWidget(etiqueta(QStringLiteral("✓ Respondida. A próxima triagem já sabe."), false, true));
+        // Mostra o que o dono já disse, para se perceber porque não se volta a perguntar.
+        const QString dito = p.value(QStringLiteral("resposta")).toObject().value(QStringLiteral("texto")).toString();
+        v->addWidget(etiqueta(dito.isEmpty() ? QStringLiteral("✓ Já respondeste.") : QStringLiteral("✓ Já respondeste: «%1»").arg(dito), false, true));
         return c;
     }
     const int numero = p.value(QStringLiteral("n")).toInt();

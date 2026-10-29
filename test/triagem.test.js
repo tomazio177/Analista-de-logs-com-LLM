@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { comBaseTemporaria } from './ajuda.js';
 import { guardar, guardarLogins, guardarLeitura, guardarNota } from '../src/historico.js';
-import { recolher, triar, aplicarRegras, alvoDaPergunta, ErroTriagem, MODELO, DIAS } from '../src/triagem.js';
+import { recolher, triar, aplicarRegras, alvoDaPergunta, mesmoEpisodio, respostaAnterior, ErroTriagem, MODELO, DIAS } from '../src/triagem.js';
 
 const FUSO = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const local = (iso) => new Date(iso).toLocaleString('sv-SE', { timeZone: FUSO });
@@ -187,7 +187,8 @@ test('as notas do dono seguem presas ao aparelho e ao episódio, e uma rajada no
     assert.deepEqual(dados.notas_gerais.map((n) => n.texto), ['Só eu uso este PC.']);
 
     assert.deepEqual(ancoras[ana.id], { tipo: 'aparelho', alvo: '02:00:00:00:00:45' });
-    assert.deepEqual(ancoras[antiga.id], { tipo: 'alerta', alvo: 'rajada|este PC|2026-10-22T14:45:00.000Z' });
+    // A chave guarda agora também o fim; a nota antiga, só com o início, continuou a corresponder (acima).
+    assert.deepEqual(ancoras[antiga.id], { tipo: 'alerta', alvo: 'rajada|este PC|2026-10-22T14:45:00.000Z|2026-10-22T14:45:29.700Z' });
   }));
 
 test('a resposta a uma pergunta fica presa ao "sobre"; sem âncora conhecida, ou de triagens antigas, fica geral', () => {
@@ -202,4 +203,30 @@ test('as perguntas ao dono têm de dizer de que falam', async () => {
   await assert.rejects(triar({}, clienteFalso(texto({ ...valida, perguntas_ao_dono: ['De quem é?'] }))), ErroTriagem);
   const { triagem } = await triar({}, clienteFalso(texto({ ...valida, perguntas_ao_dono: [{ pergunta: 'De quem é?', sobre: 'd2' }] })));
   assert.equal(triagem.perguntas_ao_dono[0].sobre, 'd2');
+});
+
+test('o mesmo episódio é reconhecido mesmo quando o início muda', () => {
+  const rajada = 'rajada|este PC|2026-10-22T14:45:00.000Z|2026-10-22T14:49:05.000Z';
+  // O período de 7 dias cortou o início: a rajada passa a começar mais tarde, mas é a mesma.
+  assert.equal(mesmoEpisodio(rajada, 'rajada|este PC|2026-10-22T14:47:30.000Z|2026-10-22T14:49:05.000Z'), true);
+  // Chegaram mais tentativas do mesmo episódio.
+  assert.equal(mesmoEpisodio(rajada, 'rajada|este PC|2026-10-22T14:45:00.000Z|2026-10-22T14:55:00.000Z'), true);
+  // Chave antiga, só com o início.
+  assert.equal(mesmoEpisodio('rajada|este PC|2026-10-22T14:45:00.000Z', rajada), true);
+  // Outro dia, outra origem ou outro tipo: é outra coisa.
+  assert.equal(mesmoEpisodio(rajada, 'rajada|este PC|2026-10-26T09:00:00.000Z|2026-10-26T09:00:05.000Z'), false);
+  assert.equal(mesmoEpisodio(rajada, 'rajada|192.168.1.66|2026-10-22T14:45:00.000Z|2026-10-22T14:49:05.000Z'), false);
+  assert.equal(mesmoEpisodio(rajada, 'pela-rede|este PC|2026-10-22T14:45:00.000Z|2026-10-22T14:49:05.000Z'), false);
+});
+
+test('a resposta anterior é a mais recente sobre o mesmo alvo', () => {
+  const notas = [
+    { alvo_tipo: 'aparelho', alvo: 'aa', pergunta: 'De quem é?', texto: 'Não sei.', data: '1' },
+    { alvo_tipo: 'aparelho', alvo: 'aa', pergunta: 'Já sabes?', texto: 'É da Ana.', data: '2' },
+    { alvo_tipo: 'geral', alvo: null, pergunta: 'Mais alguém usa este PC?', texto: 'Não.', data: '3' },
+  ];
+  assert.equal(respostaAnterior(notas, { alvoTipo: 'aparelho', alvo: 'aa', pergunta: 'x' }).texto, 'É da Ana.');
+  assert.equal(respostaAnterior(notas, { alvoTipo: 'aparelho', alvo: 'bb', pergunta: 'x' }), null);
+  assert.equal(respostaAnterior(notas, { alvoTipo: 'geral', alvo: null, pergunta: '  mais alguém usa este PC? ' }).texto, 'Não.');
+  assert.equal(respostaAnterior(notas, { alvoTipo: 'geral', alvo: null, pergunta: 'Outra pergunta?' }), null);
 });

@@ -83,7 +83,8 @@ QJsonObject triagemDeExemplo()
         {"avisos", QJsonArray{"O modelo não fez nenhum achado sobre o alerta a2."}},
         {"achados", QJsonArray{achado("Repetidor com SSH aberto", "baixa"), achado("Rajada vinda da rede", "alta")}},
         {"perguntas", QJsonArray{QJsonObject{{"n", 1}, {"pergunta", "De quem é o LAPTOP-AB12CD34?"}, {"respondida", false}},
-                                 QJsonObject{{"n", 2}, {"pergunta", "Mais alguém usa este PC?"}, {"respondida", true}}}}};
+                                 QJsonObject{{"n", 2}, {"pergunta", "Mais alguém usa este PC?"}, {"respondida", true},
+                                             {"resposta", QJsonObject{{"texto", "Não, só eu."}, {"data", "2026-10-27T18:05:00.000Z"}}}}}}};
 }
 
 // Um motor de brincar: uma pasta com src/vigiar.js (só para ser reconhecida) e src/<script>.js à medida do teste.
@@ -234,7 +235,7 @@ private slots:
         QVERIFY(t.indexOf("Rajada vinda da rede") >= 0);
         // Só a pergunta por responder tem caixa de resposta.
         QCOMPARE(janela.findChildren<QLineEdit *>().size(), 1);
-        QVERIFY(contem(&janela, "✓ Respondida"));
+        QVERIFY(contem(&janela, "✓ Já respondeste: «Não, só eu.»"));
     }
     void janela_mostraOTextoDaRedeComoTextoENaoComoHtml()
     {
