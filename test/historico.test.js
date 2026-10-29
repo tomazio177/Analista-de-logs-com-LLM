@@ -2,10 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { comBaseTemporaria } from './ajuda.js';
+import { compararVarrimentos } from '../src/comparar.js';
 import {
   guardar, ultimoVarrimento, ausenciasPorMac, contarVarrimentos, inventarioAtual,
   aprovarRede, redeAprovada, guardarLeitura, coberturaDosLogs, guardarTriagem,
-  ultimaTriagemValida, guardarNota, listarNotas, apagarNota,
+  ultimaTriagemValida, guardarNota, listarNotas, apagarNota, macsConhecidos,
 } from '../src/historico.js';
 
 const aparelho = (mac, ip, extra = {}) => ({ mac, ip, portas: [], nome: null, ...extra });
@@ -137,4 +138,18 @@ test('uma tabela notas de antes da ligação à triagem ganha a coluna triagem_i
     antiga.close();
     const db = abrirBase();
     assert.deepEqual(listarNotas(db).map((n) => [n.texto, n.triagem_id]), [['Fui eu.', null]]);
+  }));
+
+test('quem falha um varrimento e volta com uma porta nova é comparado com a última vez que foi visto', () =>
+  comBaseTemporaria((abrirBase) => {
+    const db = abrirBase();
+    const casa = { cidr: '192.168.1.0/24', router: '00:00:5e:00:53:01' };
+    guardar(db, casa, [aparelho('pc', '192.168.1.30', { portas: [445] })], '2026-10-24T10:00:00Z');
+    guardar(db, casa, [], '2026-10-24T11:00:00Z'); // não respondeu ao ping
+
+    const anterior = ultimoVarrimento(db, casa);
+    assert.equal(anterior.data, '2026-10-24T11:00:00Z');
+    const mudancas = compararVarrimentos(anterior, [aparelho('pc', '192.168.1.31', { portas: [445, 23] })],
+      macsConhecidos(db), ausenciasPorMac(db, casa));
+    assert.deepEqual(mudancas.map((m) => [m.tipo, m.portas ?? m.de]), [['mudou-ip', '192.168.1.30'], ['portas-abertas', [23]]]);
   }));
