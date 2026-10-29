@@ -24,7 +24,7 @@ export function compararVarrimentos(anterior, atuais, conhecidos, ausencias = ne
       continue;
     }
     const antes = anterior?.aparelhos.get(a.mac);
-    if (!antes) continue; // falhou alguns varrimentos mas nunca chegou a "sair": não é notícia
+    if (!antes) continue; // conhecido, mas nunca visto nesta rede: não há com que comparar
 
     if (antes.ip !== a.ip) {
       mudancas.push({ tipo: 'mudou-ip', aparelho: a, de: antes.ip });

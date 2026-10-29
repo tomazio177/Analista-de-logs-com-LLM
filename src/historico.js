@@ -142,14 +142,21 @@ export function ausenciasPorMac(db, rede) {
   return new Map(linhas.map((l) => [l.mac, { faltas: l.faltas, ip: l.ip }]));
 }
 
+// A data do último varrimento desta rede e, por aparelho, como estava da última vez que respondeu nela.
+// Não só no último varrimento: quem falhou um ou dois pings e volta com telnet aberto tem de ser comparado
+// com o que tinha antes de faltar, senão a porta nova passava sem alerta.
 export function ultimoVarrimento(db, rede) {
   const v = db.prepare(`SELECT id, data FROM varrimentos v WHERE ${DA_REDE} ORDER BY id DESC LIMIT 1`).get(rede);
   if (!v) return null;
 
-  const aparelhos = new Map();
-  for (const o of db.prepare('SELECT mac, ip, portas FROM observacoes WHERE varrimento_id = ?').all(v.id)) {
-    aparelhos.set(o.mac, { ip: o.ip, portas: JSON.parse(o.portas) });
-  }
+  // Com MAX() e GROUP BY, o SQLite tira ip e portas da mesma linha que tem o maior id.
+  const linhas = db.prepare(`
+    SELECT o.mac, o.ip, o.portas, MAX(v.id)
+    FROM observacoes o JOIN varrimentos v ON v.id = o.varrimento_id
+    WHERE ${DA_REDE}
+    GROUP BY o.mac
+  `).all(rede);
+  const aparelhos = new Map(linhas.map((o) => [o.mac, { ip: o.ip, portas: JSON.parse(o.portas) }]));
   return { data: v.data, aparelhos };
 }
 
