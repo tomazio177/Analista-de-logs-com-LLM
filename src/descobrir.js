@@ -30,7 +30,7 @@ export function sistemaProvavel(ttl) {
 }
 
 // Lê a tabela ARP do sistema: a correspondência IP → MAC que o PC aprendeu.
-// Funciona com o formato do Windows ("192.168.0.1  60-e3-27-...") e do Linux/macOS ("(192.168.0.1) at 60:e3:27:...").
+// Funciona com o formato do Windows ("192.168.0.1  00-00-5e-...") e do Linux/macOS ("(192.168.0.1) at 00:00:5e:...").
 export async function tabelaArp() {
   const { stdout } = await correr('arp', ['-a'], { windowsHide: true });
   const tabela = new Map();
