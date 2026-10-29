@@ -1,8 +1,11 @@
+#include "administrador.h"
+#include "chave.h"
 #include "janela.h"
 #include "motor.h"
 #include "texto.h"
 
 #include <QDir>
+#include <QFrame>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -288,7 +291,8 @@ private slots:
         QVERIFY(botao(&janela, "Aprovar e verificar…"));
         QVERIFY(contem(&janela, "ainda não foi aprovada"));
         QVERIFY(contem(&janela, "precisam de administrador"));
-        QVERIFY(contem(&janela, "Falta a chave da API.\nNão há ficheiro .env"));
+        QVERIFY(contem(&janela, "Falta a chave da API para pedir a triagem."));
+        QVERIFY(botao(&janela, "Guardar a chave…"));
     }
     void janela_foraDoWindowsNaoSeQueixaDosLogins()
     {
@@ -336,6 +340,76 @@ private slots:
         QCOMPARE(args.at(2).toString(), QString("--texto=-é de alguém de casa"));
         // Guardada a resposta, a janela volta a pedir a última triagem para se atualizar.
         QTRY_COMPARE_WITH_TIMEOUT(carregou.size(), 2, 30000);
+    }
+    void janela_logins_lidos_a_parte_nao_dao_faixa_vazia()
+    {
+        // Com os logins lidos como administrador, a vigia corre com --sem-logs e o motor devolve logins: null.
+        const QJsonObject vigia{{"ok", true},
+                                {"varrimento", QJsonObject{{"ok", true}, {"aparelhos", QJsonArray{}}, {"mudancas", QJsonArray{}}}},
+                                {"logins", QJsonValue::Null},
+                                {"triagem", triagemDeExemplo()}};
+        Motor motor;
+        JanelaPrincipal janela(&motor);
+        janela.mostrarVigia(vigia);
+        for (QFrame *f : janela.findChildren<QFrame *>())
+            if (f->objectName() == "faixa")
+                QFAIL("não devia haver faixas");
+    }
+
+    // --- Pedir administrador (as aspas da linha de comandos do Windows) ----------------------------------
+    void linhaDeComandos_seguraOsCaminhosComEspacos()
+    {
+        QCOMPARE(linhaDeComandos({"--json", "--dados=C:\\Users\\Ana\\AppData"}), QString("--json --dados=C:\\Users\\Ana\\AppData"));
+        QCOMPARE(linhaDeComandos({"C:\\Program Files\\Analista\\motor\\src\\logs.js"}), QString("\"C:\\Program Files\\Analista\\motor\\src\\logs.js\""));
+        // Uma barra no fim, dentro de aspas, tem de ser duplicada; senão engoliria a aspa final.
+        QCOMPARE(linhaDeComandos({"--dados=C:\\Pasta com espaço\\"}), QString("\"--dados=C:\\Pasta com espaço\\\\\""));
+        QCOMPARE(linhaDeComandos({"diz \"olá\""}), QString("\"diz \\\"olá\\\"\""));
+        QCOMPARE(linhaDeComandos({""}), QString("\"\""));
+    }
+
+    // --- A chave da API ----------------------------------------------------------------------------------
+    void motor_mandaAEntradaPeloStdin()
+    {
+        MotorFalso falso;
+        falso.escrever("eco.js", "let t='';process.stdin.on('data',d=>t+=d);process.stdin.on('end',()=>process.stdout.write(JSON.stringify({contrato:1,ok:true,recebido:t})));");
+        falso.escrever("sem_stdin.js", "process.stdin.resume();process.stdin.on('end',()=>process.stdout.write(JSON.stringify({contrato:1,ok:true})));");
+        VariavelTemporaria pastaDoMotor("ANALISTA_MOTOR", falso.pasta.path().toUtf8());
+        Motor motor;
+        QSignalSpy depois(&motor, &Motor::terminou);
+        motor.executar("eco.js", {}, QStringLiteral("sk-ant-segredo").toUtf8());
+        // Um comando que lê o stdin sem lhe mandarmos nada não fica à espera para sempre.
+        motor.executar("sem_stdin.js");
+        QTRY_COMPARE_WITH_TIMEOUT(depois.size(), 2, 30000);
+        for (const auto &sinal : depois)
+            if (sinal.at(0).toString() == "eco.js")
+                QCOMPARE(sinal.at(1).toJsonObject().value("recebido").toString(), QString("sk-ant-segredo"));
+    }
+    void dialogoChave_ficaAbertoComOErroEFechaQuandoGuarda()
+    {
+        MotorFalso falso;
+        falso.escrever("config.js", R"(
+            let t = ''; process.stdin.on('data', (d) => (t += d));
+            process.stdin.on('end', () => process.stdout.write(JSON.stringify(t === 'sk-ant-boa'
+              ? { contrato: 1, ok: true, aviso: 'Sem internet: ficou guardada na mesma.' }
+              : { contrato: 1, ok: false, erro: { codigo: 'chave-recusada', mensagem: 'A Anthropic recusou esta chave.' } })));
+        )");
+        VariavelTemporaria pastaDoMotor("ANALISTA_MOTOR", falso.pasta.path().toUtf8());
+        Motor motor;
+        DialogoChave dialogo(&motor, true);
+        dialogo.show();
+        auto *caixa = dialogo.findChild<QLineEdit *>();
+        QCOMPARE(caixa->echoMode(), QLineEdit::Password);
+
+        caixa->setText("sk-ant-errada");
+        QTest::mouseClick(botao(&dialogo, "Guardar"), Qt::LeftButton);
+        QTRY_VERIFY_WITH_TIMEOUT(contem(&dialogo, "A Anthropic recusou esta chave."), 30000);
+        QVERIFY(dialogo.isVisible());
+        QVERIFY(botao(&dialogo, "Guardar")->isEnabled());
+
+        caixa->setText("  sk-ant-boa  ");
+        QTest::mouseClick(botao(&dialogo, "Guardar"), Qt::LeftButton);
+        QTRY_COMPARE_WITH_TIMEOUT(dialogo.result(), int(QDialog::Accepted), 30000);
+        QCOMPARE(dialogo.aviso(), QString("Sem internet: ficou guardada na mesma."));
     }
     void janela_semMotorDizPorqueNaoFunciona()
     {

@@ -31,7 +31,12 @@ public:
     const Localizacao &localizacao() const { return localizacao_; }
 
     // Corre `src/<script> <args> --json`. Pode haver vários ao mesmo tempo: cada um tem o seu processo.
-    void executar(const QString &script, const QStringList &args = {});
+    // `entrada` vai para o stdin: é por aí que segue a chave da API, que na linha de comandos ficaria à vista de outros programas.
+    void executar(const QString &script, const QStringList &args = {}, const QByteArray &entrada = {});
+
+    // Corre `src/<script> <args>` com privilégios de administrador: o Windows pergunta à pessoa. Não há resultado JSON
+    // (o Windows não deixa ler o que um processo elevado escreve); só o código de saída, ou -1 se a pessoa recusou.
+    void executarComoAdministrador(const QString &script, const QStringList &args = {});
 
 signals:
     // Uma linha de andamento ({"progresso": {...}}), já sem o invólucro.
@@ -40,6 +45,8 @@ signals:
     void terminou(const QString &script, const QJsonObject &resultado);
     // Não houve documento: o Node não arrancou, o motor rebentou ou devolveu lixo.
     void falhou(const QString &script, const QString &mensagem);
+    // Acabou um executarComoAdministrador: o código de saída, ou -1 se a pessoa recusou ou não arrancou.
+    void terminouComoAdministrador(const QString &script, int codigo);
 
 private:
     Localizacao localizacao_;

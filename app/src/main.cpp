@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
     Motor motor;
     JanelaPrincipal janela(&motor);
     janela.show();
-    janela.carregarUltima();
+    janela.arrancar();
 
     if (linha.isSet(captura)) {
         janela.resize(780, 860);

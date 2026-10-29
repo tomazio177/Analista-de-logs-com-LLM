@@ -8,11 +8,11 @@ import { lerLoginsFalhados, SEM_PERMISSAO } from './eventos.js';
 import { interpretar, alertas, nomeDoProcesso, SEM_IP } from './logins.js';
 import { recolher, triar, aplicarRegras, alvoDaPergunta, respostaAnterior, ErroTriagem, MODELO } from './triagem.js';
 import { semApoioNosDados } from './verificar.js';
-import { carregarEnv } from './env.js';
+import { carregarEnv, escreverChave } from './env.js';
 import {
   guardar, macsConhecidos, ultimoVarrimento, ausenciasPorMac, redeAprovada, aprovarRede,
   guardarLogins, guardarLeitura, coberturaDosLogs, aparelhosPorIp,
-  guardarTriagem, ultimaTriagemValida, guardarNota, listarNotas, apagarNota,
+  guardarTriagem, ultimaTriagemValida, guardarNota, listarNotas, apagarNota, pastaDeDados,
 } from './historico.js';
 
 // O motor: tudo o que os comandos fazem, sem escrever nada no ecrã. Cada operação devolve um objeto simples,
@@ -148,7 +148,7 @@ export async function fazerTriagem(db, { cliente } = {}) {
   if (!cliente) {
     const problema = carregarEnv();
     if (!process.env.ANTHROPIC_API_KEY) {
-      return falha('sem-chave', 'Falta a chave da API. Copia o .env.example para .env e preenche a ANTHROPIC_API_KEY.', { detalhe: problema });
+      return falha('sem-chave', 'Falta a chave da API.', { detalhe: problema });
     }
     cliente = new Anthropic();
   }
@@ -247,13 +247,42 @@ export function apagarResposta(db, id) {
   return apagarNota(db, id) ? { ok: true } : falha('resposta-inexistente', `Não há nenhuma resposta com o n.º ${id}.`);
 }
 
+// --- Configuração ------------------------------------------------------------------------------------------
+
+export function configuracao() {
+  carregarEnv();
+  return { ok: true, pasta_de_dados: pastaDeDados(), chave_definida: Boolean(process.env.ANTHROPIC_API_KEY) };
+}
+
+// Confirma a chave com a Anthropic (listar os modelos não custa nada) e guarda-a na pasta de dados.
+// Sem ligação, guarda na mesma e avisa: uma chave certa não deve ficar por guardar só porque a internet falhou.
+// `cliente` é para os testes.
+export async function guardarChave(chave, { cliente } = {}) {
+  const limpa = chave?.trim() ?? '';
+  if (!limpa) return falha('chave-vazia', 'A chave está vazia.');
+  if (!/^sk-ant-[A-Za-z0-9_-]+$/.test(limpa)) return falha('chave-invalida', 'Isto não parece uma chave da API da Anthropic: as chaves começam por "sk-ant-".');
+
+  let aviso = null;
+  try {
+    await (cliente ?? new Anthropic({ apiKey: limpa })).models.list({ limit: 1 });
+  } catch (erro) {
+    if (erro instanceof Anthropic.AuthenticationError) return falha('chave-recusada', 'A Anthropic recusou esta chave. Confirma que a copiaste inteira.');
+    if (erro instanceof Anthropic.APIConnectionError) aviso = 'Não consegui confirmar a chave porque não há ligação à internet. Ficou guardada na mesma.';
+    else if (erro instanceof Anthropic.APIError) aviso = `Não consegui confirmar a chave (erro ${erro.status}). Ficou guardada na mesma.`;
+    else throw erro;
+  }
+  escreverChave(limpa);
+  return { ok: true, pasta_de_dados: pastaDeDados(), ...(aviso && { aviso }) };
+}
+
 // --- Tudo de seguida ---------------------------------------------------------------------------------------
 
 // O que se corre de hora a hora (ou com o botão da app): varrer, ler os logins e pedir a triagem.
 // Um passo que falha não impede os outros: sem privilégios não há logins novos, mas a triagem continua a ter o resto.
-export async function vigiar(db, { aprovar = false, aoProgredir, cliente } = {}) {
+// `semLogs`: a app lê os logins à parte, com privilégios de administrador, e aqui salta esse passo (logins fica null).
+export async function vigiar(db, { aprovar = false, semLogs = false, aoProgredir, cliente } = {}) {
   const varrimento = await varrer(db, { aprovar, aoProgredir });
-  const logins = await lerLogs(db);
+  const logins = semLogs ? null : await lerLogs(db);
   const triagem = await fazerTriagem(db, { cliente });
   return { ok: triagem.ok, varrimento, logins, triagem };
 }

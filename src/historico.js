@@ -1,11 +1,31 @@
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
-// ANALISTA_DB troca a base de dados (os testes usam uma temporária; a app pode querer outra pasta).
-const FICHEIRO = process.env.ANALISTA_DB ?? path.join(import.meta.dirname, '..', 'data', 'analista.db');
+// Os dados ficam na pasta do utilizador e não na do programa: instalado, o programa vive numa pasta onde só o
+// administrador escreve, e a app e os comandos têm de ver a mesma base de dados. ANALISTA_DADOS troca a pasta.
+export function pastaDeDados() {
+  if (process.env.ANALISTA_DADOS) return process.env.ANALISTA_DADOS;
+  if (process.platform === 'win32') return path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Analista de logs');
+  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'Analista de logs');
+  return path.join(process.env.XDG_DATA_HOME ?? path.join(os.homedir(), '.local', 'share'), 'analista-de-logs');
+}
 
-export function abrir(ficheiro = FICHEIRO) {
+const ANTIGA = path.join(import.meta.dirname, '..', 'data', 'analista.db');
+
+// Antes, a base vivia dentro da pasta do projeto. Na primeira vez copia-se para o sítio novo; a antiga fica como cópia de segurança.
+export function ficheiroPorOmissao(antiga = ANTIGA) {
+  const novo = path.join(pastaDeDados(), 'analista.db');
+  if (!existsSync(novo) && existsSync(antiga)) {
+    mkdirSync(path.dirname(novo), { recursive: true });
+    copyFileSync(antiga, novo);
+  }
+  return novo;
+}
+
+// ANALISTA_DB troca só a base de dados (os testes usam uma temporária).
+export function abrir(ficheiro = process.env.ANALISTA_DB ?? ficheiroPorOmissao()) {
   mkdirSync(path.dirname(ficheiro), { recursive: true });
   const db = new DatabaseSync(ficheiro);
   db.exec(`

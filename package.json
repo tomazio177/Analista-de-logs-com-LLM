@@ -12,6 +12,7 @@
     "triagem": "node --disable-warning=ExperimentalWarning src/triar.js",
     "responder": "node --disable-warning=ExperimentalWarning src/notas.js",
     "notas": "node --disable-warning=ExperimentalWarning src/notas.js --listar",
+    "chave": "node --disable-warning=ExperimentalWarning src/config.js --guardar-chave",
     "vigiar": "node --disable-warning=ExperimentalWarning src/vigiar.js",
     "ferramentas": "node scripts/ferramentas.js",
     "app": "node scripts/app.js",

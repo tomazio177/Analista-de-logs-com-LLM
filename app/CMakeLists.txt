@@ -17,9 +17,17 @@ add_library(analista_nucleo STATIC
     src/texto.h
     src/janela.cpp
     src/janela.h
+    src/chave.cpp
+    src/chave.h
+    src/administrador.cpp
+    src/administrador.h
 )
 target_include_directories(analista_nucleo PUBLIC src)
 target_link_libraries(analista_nucleo PUBLIC Qt6::Widgets)
+if(WIN32)
+    # ShellExecuteEx (pedir administrador) e a leitura do token do processo.
+    target_link_libraries(analista_nucleo PUBLIC shell32 advapi32)
+endif()
 if(MSVC)
     target_compile_options(analista_nucleo PRIVATE /W4)
 else()

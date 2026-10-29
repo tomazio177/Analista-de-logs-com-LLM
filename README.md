@@ -38,7 +38,7 @@ npm run responder             # responde às perguntas da última triagem
 npm run notas                 # mostra as respostas guardadas (npm run notas -- --apagar 3 apaga a n.º 3)
 ```
 
-Os logs só funcionam no Windows e num PowerShell aberto como administrador: o registo de Segurança não se lê sem privilégios. O `npm run scan` continua a não precisar deles. Para a triagem, copia o `.env.example` para `.env` e preenche a `ANTHROPIC_API_KEY` (o `.env` já está no `.gitignore`).
+Os logs só funcionam no Windows e num PowerShell aberto como administrador: o registo de Segurança não se lê sem privilégios. O `npm run scan` continua a não precisar deles. Para a triagem, guarda a chave da API com `npm run chave` (ou no ecrã que a app mostra da primeira vez). Fica num `.env` na pasta de dados do utilizador (`%APPDATA%\Analista de logs` no Windows), junto com a base de dados; um `.env` na pasta do projeto também serve.
 
 ```bash
 npm test             # testes automáticos: não precisam de rede, de Windows nem de chave da API

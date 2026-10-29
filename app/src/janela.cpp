@@ -1,5 +1,7 @@
 #include "janela.h"
 
+#include "administrador.h"
+#include "chave.h"
 #include "motor.h"
 #include "texto.h"
 
@@ -14,6 +16,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QTimer>
 #include <QTime>
 #include <QVBoxLayout>
 #include <algorithm>
@@ -130,11 +133,15 @@ JanelaPrincipal::JanelaPrincipal(Motor *motor, QWidget *pai) : QMainWindow(pai),
     subtitulo_ = etiqueta(QString(), false, true);
     colunaTitulo->addWidget(titulo);
     colunaTitulo->addWidget(subtitulo_);
+    auto *botaoChave = new QPushButton(QStringLiteral("Chave da API…"));
+    botaoChave->setFlat(true);
+    connect(botaoChave, &QPushButton::clicked, this, [this] { pedirChave(false); });
     botao_ = new QPushButton(QStringLiteral("Verificar agora"));
     botao_->setDefault(true);
     botao_->setMinimumHeight(34);
     topo->addWidget(nivel_, 0, Qt::AlignVCenter);
     topo->addLayout(colunaTitulo, 1);
+    topo->addWidget(botaoChave, 0, Qt::AlignVCenter);
     topo->addWidget(botao_, 0, Qt::AlignVCenter);
     raiz->addLayout(topo);
 
@@ -185,6 +192,7 @@ JanelaPrincipal::JanelaPrincipal(Motor *motor, QWidget *pai) : QMainWindow(pai),
     connect(motor_, &Motor::terminou, this, &JanelaPrincipal::aoTerminar);
     connect(motor_, &Motor::falhou, this, &JanelaPrincipal::aoFalhar);
     connect(motor_, &Motor::progresso, this, &JanelaPrincipal::aoProgredir);
+    connect(motor_, &Motor::terminouComoAdministrador, this, &JanelaPrincipal::aoTerminarComoAdministrador);
 
     if (!motor_->localizacao().ok()) {
         botao_->setEnabled(false);
@@ -194,6 +202,12 @@ JanelaPrincipal::JanelaPrincipal(Motor *motor, QWidget *pai) : QMainWindow(pai),
 }
 
 // --- Pedidos ao motor -------------------------------------------------------------------------------------
+
+void JanelaPrincipal::arrancar()
+{
+    carregarUltima();
+    motor_->executar(QStringLiteral("config.js"));
+}
 
 void JanelaPrincipal::carregarUltima()
 {
@@ -206,8 +220,48 @@ void JanelaPrincipal::verificarAgora(bool aprovar)
         return;
     limparFaixas();
     definirOcupado(true);
+    aprovar_ = aprovar;
+    if (processoElevado()) {
+        correrVigia(false);
+        return;
+    }
+    // No Windows, sem administrador: os logins leem-se primeiro, num processo à parte com autorização do Windows,
+    // e a vigia corre depois sem esse passo. A janela nunca tem mais poderes do que precisa.
+    definirEstado(QStringLiteral("A pedir ao Windows autorização para ler os logins…"));
+    QStringList args{QStringLiteral("--json")};
+    if (!pastaDeDados_.isEmpty())
+        args << QStringLiteral("--dados=") + pastaDeDados_;
+    motor_->executarComoAdministrador(QStringLiteral("logs.js"), args);
+}
+
+void JanelaPrincipal::aoTerminarComoAdministrador(const QString &script, int codigo)
+{
+    if (script != QLatin1String("logs.js"))
+        return;
+    if (codigo == -1)
+        faixa(QStringLiteral("Sem autorização do Windows, os logins não foram lidos. A verificação continua sem eles."), Faixa::Aviso);
+    else if (codigo != 0)
+        faixa(QStringLiteral("Não consegui ler os logins do Windows (código %1). A verificação continua sem eles.").arg(codigo), Faixa::Aviso);
+    correrVigia(true);
+}
+
+void JanelaPrincipal::correrVigia(bool semLogs)
+{
     definirEstado(QStringLiteral("A verificar…"));
-    motor_->executar(QStringLiteral("vigiar.js"), aprovar ? QStringList{QStringLiteral("--aprovar")} : QStringList{});
+    QStringList args;
+    if (aprovar_)
+        args << QStringLiteral("--aprovar");
+    if (semLogs)
+        args << QStringLiteral("--sem-logs");
+    motor_->executar(QStringLiteral("vigiar.js"), args);
+}
+
+void JanelaPrincipal::pedirChave(bool primeiraVez)
+{
+    DialogoChave dialogo(motor_, primeiraVez, this);
+    if (dialogo.exec() != QDialog::Accepted)
+        return;
+    faixa(dialogo.aviso().isEmpty() ? QStringLiteral("Chave guardada.") : QStringLiteral("Chave guardada. ") + dialogo.aviso(), Faixa::Info);
 }
 
 void JanelaPrincipal::responder(int numero, const QString &texto)
@@ -251,6 +305,11 @@ void JanelaPrincipal::aoTerminar(const QString &script, const QJsonObject &r)
         else
             faixa(r.value(QStringLiteral("erro")).toObject().value(QStringLiteral("mensagem")).toString(), Faixa::Erro);
         emit carregou();
+    } else if (script == QLatin1String("config.js") && r.contains(QStringLiteral("chave_definida"))) {
+        // Ao abrir: guarda a pasta de dados (o processo elevado tem de a receber) e, sem chave, pede-a já.
+        pastaDeDados_ = r.value(QStringLiteral("pasta_de_dados")).toString();
+        if (!r.value(QStringLiteral("chave_definida")).toBool())
+            QTimer::singleShot(0, this, [this] { pedirChave(true); });
     } else if (script == QLatin1String("notas.js")) {
         if (r.value(QStringLiteral("ok")).toBool())
             carregarUltima();
@@ -309,7 +368,9 @@ void JanelaPrincipal::mostrarVigia(const QJsonObject &r)
     }
 
     const QJsonObject logins = parte("logins");
-    if (ok(logins)) {
+    if (r.value(QStringLiteral("logins")).isNull()) {
+        // Os logins foram lidos à parte, como administrador (ou a pessoa não deu autorização: já há uma faixa a dizê-lo).
+    } else if (ok(logins)) {
         resumo << QStringLiteral("%1 logins novos").arg(logins.value(QStringLiteral("novos")).toInt());
         if (!logins.value(QStringLiteral("periodos_possivelmente_incompletos")).toArray().isEmpty())
             faixa(QStringLiteral("O Windows já apagou alguns logins falhados antigos antes de serem lidos. Os que aparecem são reais, mas pode faltar algum."), Faixa::Info);
@@ -323,11 +384,15 @@ void JanelaPrincipal::mostrarVigia(const QJsonObject &r)
     if (ok(triagem)) {
         mostrarTriagem(triagem);
     } else {
-        QString texto = mensagem(triagem);
-        const QString detalhe = triagem.value(QStringLiteral("detalhe")).toString();
-        if (!detalhe.isEmpty())
-            texto += QStringLiteral("\n") + detalhe;
-        faixa(texto, Faixa::Erro);
+        if (codigo(triagem) == QLatin1String("sem-chave")) {
+            faixa(QStringLiteral("Falta a chave da API para pedir a triagem."), Faixa::Erro, QStringLiteral("Guardar a chave…"), [this] { pedirChave(false); });
+        } else {
+            QString texto = mensagem(triagem);
+            const QString detalhe = triagem.value(QStringLiteral("detalhe")).toString();
+            if (!detalhe.isEmpty())
+                texto += QStringLiteral("\n") + detalhe;
+            faixa(texto, Faixa::Erro);
+        }
     }
     definirEstado(resumo.isEmpty() ? QString()
                                       : QStringLiteral("Verificado às %1: %2.").arg(QLocale().toString(QTime::currentTime(), QLocale::ShortFormat), resumo.join(QStringLiteral(", "))));

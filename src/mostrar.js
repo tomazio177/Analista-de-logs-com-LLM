@@ -39,7 +39,7 @@ export function progresso(json) {
 const DICAS = {
   'rede-por-aprovar': 'Se a rede é tua, ou tens autorização de quem manda nela, aprova-a uma vez acrescentando --aprovar:\n  npm run scan -- --aprovar',
   'sem-permissao': 'Abre o PowerShell como administrador (botão direito → "Executar como administrador") e corre outra vez.',
-  'sem-chave': 'O .env já está no .gitignore, por isso não vai parar ao GitHub.',
+  'sem-chave': 'Guarda-a com: npm run chave',
   'sem-varrimentos': 'Corre primeiro: npm run scan',
   'sem-triagem': 'Corre primeiro: npm run triagem',
   'dias-invalidos': 'Uso: npm run logs -- [dias]   (de 1 a 365; por omissão, 7)',
@@ -216,6 +216,6 @@ export function mostrarVigia(r) {
   const passo = (resultado, mostrar) => (resultado.ok ? mostrar(resultado) : mostrarFalha(resultado));
   passo(r.varrimento, mostrarVarrimento);
   // Fora do Windows não há logins para ler: não vale a pena um erro em cada vigia.
-  if (r.logins.erro?.codigo !== 'nao-windows') passo(r.logins, mostrarLogs);
+  if (r.logins && r.logins.erro?.codigo !== 'nao-windows') passo(r.logins, mostrarLogs);
   passo(r.triagem, mostrarTriagem);
 }

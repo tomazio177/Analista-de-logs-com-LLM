@@ -10,7 +10,7 @@ node --disable-warning=ExperimentalWarning <pasta do projeto>/src/<comando>.js [
 
 - Chama o `node` diretamente. Pelo `npm run` não dá: o npm escreve as linhas `> analista-de-logs-com-llm@… scan` no stdout, antes do JSON (`npm run --silent` também evita isso).
 - A pasta de trabalho não importa: a base de dados e o `.env` são procurados a partir da pasta do projeto.
-- `ANALISTA_DB=<caminho>` troca a base de dados (por omissão, `data/analista.db`).
+- Os dados (base de dados e `.env` com a chave) ficam na pasta do utilizador: `%APPDATA%\Analista de logs` no Windows, `~/.local/share/analista-de-logs` no Linux, `~/Library/Application Support/Analista de logs` no macOS. `ANALISTA_DADOS=<pasta>` troca essa pasta e `ANALISTA_DB=<caminho>` troca só a base de dados. Uma base antiga em `data/analista.db` é copiada para lá na primeira vez.
 - O stdout traz **um só** documento JSON, numa linha, em UTF-8. O código de saída é 0 quando `ok` é `true` e 1 nos outros casos.
 - O `scan` e o `vigiar` escrevem o andamento no **stderr**, um objeto por linha: `{"progresso":{"fase":"inicio",…}}`, `{"progresso":{"fase":"descobrir","feitos":120,"total":254}}`, `{"progresso":{"fase":"portas","aparelhos":7,"portas":18}}`. Serve para uma barra de progresso; pode ser ignorado.
 
@@ -36,7 +36,10 @@ node --disable-warning=ExperimentalWarning <pasta do projeto>/src/<comando>.js [
 | `notas.js --pergunta N --texto=…` | Escreve o texto na mesma peça que `--texto=`: assim uma resposta que comece por `-` não é tomada por outra opção | `resposta_id` |
 | `notas.js --listar` | | `respostas[]` |
 | `notas.js --apagar N` | | nada além de `ok` |
-| `vigiar.js` (tudo de seguida) | `--aprovar` | `varrimento`, `logins` e `triagem`: os três resultados acima, cada um com o seu `ok`. O `ok` de fora é o da triagem |
+| `config.js` | | `pasta_de_dados`, `chave_definida` |
+| `config.js --guardar-chave` | A chave entra pelo **stdin**, nunca na linha de comandos, onde outros programas a podiam ver. O motor confirma-a com a Anthropic antes de a guardar | `pasta_de_dados`, e `aviso` se não deu para confirmar (sem internet: fica guardada na mesma) |
+| `logs.js --dados=<pasta>` | Para quando corre como administrador: o Windows não passa as variáveis de ambiente a um processo elevado | o mesmo que `logs.js` |
+| `vigiar.js` (tudo de seguida) | `--aprovar`; `--sem-logs` salta a leitura dos logins (a app lê-os à parte, como administrador) e devolve `logins: null` | `varrimento`, `logins` e `triagem`: os três resultados acima, cada um com o seu `ok`. O `ok` de fora é o da triagem |
 
 Os objetos dentro das listas:
 
@@ -59,8 +62,10 @@ Os objetos dentro das listas:
 | `nao-windows` | Os logins só existem no Windows | Esconder a parte dos logins |
 | `dias-invalidos` | Os dias não são um inteiro de 1 a 365 | Corrigir o pedido |
 | `sem-varrimentos` | Não há varrimentos para a triagem | Pedir um varrimento primeiro |
-| `sem-chave` | Falta a `ANTHROPIC_API_KEY`; o campo `detalhe` diz o que está mal no `.env` | Pedir a chave |
-| `chave-recusada` | A API recusou a chave | Pedir outra chave |
+| `sem-chave` | Falta a `ANTHROPIC_API_KEY`; o campo `detalhe` diz o que está mal no `.env` | Pedir a chave e guardá-la com `config.js --guardar-chave` |
+| `chave-vazia` | Ao guardar: a chave está vazia | Pedir outra vez |
+| `chave-invalida` | Ao guardar: não começa por `sk-ant-` | Pedir outra vez |
+| `chave-recusada` | A API recusou a chave (ao guardar, ou na triagem) | Pedir outra chave |
 | `limite-de-pedidos` | Demasiados pedidos à API | Tentar mais tarde |
 | `sem-ligacao` | Sem ligação à API | Verificar a internet |
 | `erro-da-api` | Outro erro da API | Mostrar a mensagem |

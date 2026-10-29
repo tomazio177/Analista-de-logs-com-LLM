@@ -19,7 +19,9 @@ class JanelaPrincipal : public QMainWindow
 public:
     explicit JanelaPrincipal(Motor *motor, QWidget *pai = nullptr);
 
-    // A última triagem guardada, sem gastar a API. É o que a app faz ao abrir.
+    // O que a app faz ao abrir: mostra a última triagem e, se faltar a chave da API, pede-a.
+    void arrancar();
+    // A última triagem guardada, sem gastar a API.
     void carregarUltima();
     // Varre a rede, lê os logins e pede a triagem (npm run vigiar). `aprovar` só depois de o dono confirmar a rede.
     void verificarAgora(bool aprovar = false);
@@ -39,8 +41,12 @@ private:
     void aoFalhar(const QString &script, const QString &mensagem);
     void aoProgredir(const QString &script, const QJsonObject &evento);
 
+    void aoTerminarComoAdministrador(const QString &script, int codigo);
+    void correrVigia(bool semLogs);
+
     void responder(int numero, const QString &texto);
     void pedirAprovacao(const QJsonObject &router);
+    void pedirChave(bool primeiraVez);
 
     void limparFaixas();
     void faixa(const QString &texto, Faixa tipo, const QString &botao = {}, const std::function<void()> &acao = {});
@@ -64,4 +70,6 @@ private:
     QLabel *tituloPerguntas_;
     QVBoxLayout *perguntas_;
     bool ocupado_ = false;
+    bool aprovar_ = false;
+    QString pastaDeDados_;
 };

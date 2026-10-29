@@ -1,12 +1,16 @@
 #include "motor.h"
 
+#include "administrador.h"
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QProcess>
 #include <QStandardPaths>
+#include <QPointer>
 #include <memory>
+#include <thread>
 
 namespace {
 
@@ -15,6 +19,17 @@ QString procurarNode()
     QString node = qEnvironmentVariable("ANALISTA_NODE");
     if (!node.isEmpty())
         return QFileInfo::exists(node) ? node : QString();
+
+    // A app instalada traz o seu próprio Node, numa pasta "node" ao lado do executável: não depende do que o PC tiver.
+    const QString incluido = QDir(QCoreApplication::applicationDirPath()).filePath(
+#ifdef Q_OS_WIN
+        QStringLiteral("node/node.exe")
+#else
+        QStringLiteral("node/node")
+#endif
+    );
+    if (QFileInfo::exists(incluido))
+        return incluido;
 
     node = QStandardPaths::findExecutable(QStringLiteral("node"));
 #ifdef Q_OS_WIN
@@ -75,7 +90,7 @@ Motor::Localizacao Motor::localizar()
     return l;
 }
 
-void Motor::executar(const QString &script, const QStringList &args)
+void Motor::executar(const QString &script, const QStringList &args, const QByteArray &entrada)
 {
     if (!localizacao_.ok()) {
         // Sempre de forma assíncrona, como nos outros casos: quem pede ainda não ligou os sinais.
@@ -149,4 +164,29 @@ void Motor::executar(const QString &script, const QStringList &args)
     });
 
     processo->start();
+    // Fecha-se sempre o stdin: um comando que o leia não fica à espera para sempre.
+    if (!entrada.isEmpty())
+        processo->write(entrada);
+    processo->closeWriteChannel();
+}
+
+void Motor::executarComoAdministrador(const QString &script, const QStringList &args)
+{
+    if (!localizacao_.ok()) {
+        QMetaObject::invokeMethod(this, [this, script] { emit terminouComoAdministrador(script, -1); }, Qt::QueuedConnection);
+        return;
+    }
+    const QString node = localizacao_.node;
+    const QString pasta = localizacao_.pasta;
+    const QStringList tudo = QStringList{QStringLiteral("--disable-warning=ExperimentalWarning"), QDir(pasta).filePath(QStringLiteral("src/") + script)} + args;
+    // Espera-se pelo processo elevado numa thread à parte, para a janela não congelar. O resultado volta à thread
+    // principal; se entretanto o Motor desapareceu, não se faz nada.
+    QPointer<Motor> eu(this);
+    std::thread([eu, script, node, pasta, tudo] {
+        const int codigo = correrComoAdministrador(node, tudo, pasta);
+        QMetaObject::invokeMethod(qApp, [eu, script, codigo] {
+            if (eu)
+                emit eu->terminouComoAdministrador(script, codigo);
+        }, Qt::QueuedConnection);
+    }).detach();
 }
