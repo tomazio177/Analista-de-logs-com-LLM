@@ -115,7 +115,9 @@ void Motor::executar(const QString &script, const QStringList &args)
         if (erro != QProcess::FailedToStart || estado->acabou)
             return;
         estado->acabou = true;
-        emit falhou(script, QStringLiteral("Não consegui arrancar o Node (%1).").arg(localizacao_.node));
+        // No Windows este erro sai de dentro de start(), antes de quem pediu ter ligado os sinais: emite-se sempre mais tarde.
+        QMetaObject::invokeMethod(this, [this, script] { emit falhou(script, QStringLiteral("Não consegui arrancar o Node (%1).").arg(localizacao_.node)); },
+                                  Qt::QueuedConnection);
         processo->deleteLater();
     });
 

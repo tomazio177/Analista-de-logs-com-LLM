@@ -20,6 +20,7 @@ const pastasDeTrabalho = [path.dirname(f.compilador), path.dirname(f.ninja), pat
 const env = { ...process.env, PATH: [...pastasDeTrabalho, process.env.PATH].join(path.delimiter) };
 const correr = (programa, args) => execFileSync(programa, args, { stdio: 'inherit', env });
 
+let fase = 'A compilação';
 try {
   correr(f.cmake, [
     '-S', fonte, '-B', build, '-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release',
@@ -28,6 +29,7 @@ try {
   ]);
   correr(f.cmake, ['--build', build]);
   if (process.argv.includes('--testes')) {
+    fase = 'Um dos testes';
     correr(path.join(path.dirname(f.cmake), exe('ctest')), ['--test-dir', build, '--output-on-failure']);
   } else {
     // Solta a app: este comando pode fechar, a janela continua.
@@ -35,6 +37,6 @@ try {
     console.log('\nA app abriu numa janela própria.\n');
   }
 } catch {
-  console.error('\nA compilação falhou. Cola-me a mensagem de erro acima.\n');
+  console.error(`\n${fase} falhou. Cola-me a mensagem acima.\n`);
   process.exit(1);
 }

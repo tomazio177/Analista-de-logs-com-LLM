@@ -212,7 +212,8 @@ private slots:
         Motor motor;
         QSignalSpy falhou(&motor, &Motor::falhou);
         motor.executar("triar.js", {"--ultima"});
-        QVERIFY(falhou.wait(30000));
+        // Não se usa wait(): se o sinal já tivesse saído de dentro do executar(), o wait() esperaria por outro que nunca vem.
+        QTRY_COMPARE_WITH_TIMEOUT(falhou.size(), 1, 30000);
         QVERIFY(falhou.first().at(1).toString().contains("arrancar o Node"));
     }
 
