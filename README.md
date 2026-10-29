@@ -44,6 +44,7 @@ Os logs só funcionam no Windows e num PowerShell aberto como administrador: o r
 npm test             # testes automáticos: não precisam de rede, de Windows nem de chave da API
 npm run ferramentas  # diz o que está instalado para a app em C++ e o que falta
 npm run app          # compila a app e abre-a (npm run app -- --testes corre os testes dela)
+npm run empacotar    # faz a pasta da app com tudo incluído e, com o Inno Setup instalado, o instalador
 ```
 
 ## Como funciona
@@ -71,6 +72,15 @@ Uma janela em C++ com Qt 6 (`app/`) por cima do motor. Não calcula nada: pede a
 - **Testes** (`npm run app -- --testes`): correm num ecrã virtual e falam com o motor a sério, numa base de dados temporária.
 
 A app acha o Node e o motor sozinha. Se não os achar, `ANALISTA_NODE` e `ANALISTA_MOTOR` indicam onde estão.
+
+### Como aplicação, sem terminal
+
+`npm run empacotar` junta em `dist/Analista de logs/` tudo o que a app precisa num PC sem Node nem Qt: o executável, as DLL do Qt (pelo `windeployqt`), o próprio Node e o motor (sem testes, dados nem chaves). Com o [Inno Setup](https://jrsoftware.org/isinfo.php) instalado, faz também o instalador (`instalador/analista.iss`), que põe a app em `Program Files` e cria o atalho no menu Iniciar.
+
+- **Dados e chave** ficam na pasta do utilizador (`%APPDATA%\Analista de logs`), não na da app. Desinstalar não os apaga.
+- **A chave da API** pede-se num ecrã, da primeira vez. Segue para o motor pelo stdin e é confirmada com a Anthropic antes de ser guardada.
+- **Administrador só para os logins.** A janela corre como utilizador normal. Ao verificar, o Windows pergunta se autoriza a leitura dos logins, e só esse comando corre como administrador. Por isso a app instala-se em `Program Files`: o código que corre como administrador não pode estar numa pasta onde qualquer programa escreva.
+- **Sem assinatura digital**, o Windows mostra o aviso do SmartScreen a quem descarregar o instalador.
 
 ## Usar a partir de outro programa
 

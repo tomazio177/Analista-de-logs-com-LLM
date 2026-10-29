@@ -1,42 +1,25 @@
 import { execFileSync, spawn } from 'node:child_process';
 import path from 'node:path';
-import { WINDOWS, exe, localizar } from './qt.js';
+import { exe } from './qt.js';
+import { compilarApp, FaltaFerramenta } from './qt-compilar.js';
 
-// npm run app            compila a app e abre-a
+// npm run app               compila a app e abre-a
 // npm run app -- --testes   compila e corre os testes da app, sem abrir janelas
 const projeto = path.resolve(import.meta.dirname, '..');
-const fonte = path.join(projeto, 'app');
-const build = path.join(fonte, 'build');
-const f = localizar();
-
-const falta = [['Qt 6', f.qmake], ['compilador C++', f.compilador], ['CMake', f.cmake], ['Ninja', f.ninja]].filter(([, c]) => !c).map(([n]) => n);
-if (falta.length) {
-  console.error(`\nFalta instalar: ${falta.join(', ')}. Corre: npm run ferramentas\n`);
-  process.exit(1);
-}
-
-// O compilador e o Qt precisam das suas pastas no PATH, tanto para compilar como para a app arrancar (as DLL do Qt).
-const pastasDeTrabalho = [path.dirname(f.compilador), path.dirname(f.ninja), path.dirname(f.qmake), path.dirname(f.cmake)];
-const env = { ...process.env, PATH: [...pastasDeTrabalho, process.env.PATH].join(path.delimiter) };
-const correr = (programa, args) => execFileSync(programa, args, { stdio: 'inherit', env });
+const build = path.join(projeto, 'app', 'build');
 
 let fase = 'A compilação';
 try {
-  correr(f.cmake, [
-    '-S', fonte, '-B', build, '-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release',
-    `-DCMAKE_MAKE_PROGRAM=${f.ninja}`, `-DCMAKE_CXX_COMPILER=${f.compilador}`,
-    ...(f.kit ? [`-DCMAKE_PREFIX_PATH=${f.kit}`] : []),
-  ]);
-  correr(f.cmake, ['--build', build]);
+  const f = compilarApp(build);
   if (process.argv.includes('--testes')) {
     fase = 'Um dos testes';
-    correr(path.join(path.dirname(f.cmake), exe('ctest')), ['--test-dir', build, '--output-on-failure']);
+    execFileSync(path.join(path.dirname(f.cmake), exe('ctest')), ['--test-dir', build, '--output-on-failure'], { stdio: 'inherit', env: f.env });
   } else {
     // Solta a app: este comando pode fechar, a janela continua.
-    spawn(path.join(build, exe('analista')), [], { env: { ...env, ANALISTA_MOTOR: projeto }, detached: true, stdio: 'ignore' }).unref();
+    spawn(path.join(build, exe('analista')), [], { env: { ...f.env, ANALISTA_MOTOR: projeto }, detached: true, stdio: 'ignore' }).unref();
     console.log('\nA app abriu numa janela própria.\n');
   }
-} catch {
-  console.error(`\n${fase} falhou. Cola-me a mensagem acima.\n`);
+} catch (erro) {
+  console.error(erro instanceof FaltaFerramenta ? `\n${erro.message}\n` : `\n${fase} falhou. Cola-me a mensagem acima.\n`);
   process.exit(1);
 }

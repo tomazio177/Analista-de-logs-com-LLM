@@ -36,6 +36,9 @@ endif()
 
 qt_add_executable(analista WIN32 src/main.cpp)
 target_link_libraries(analista PRIVATE analista_nucleo)
+# O ícone da janela e da barra de tarefas. O do ficheiro .exe ficaria a cargo do windres do MinGW, que falha com espaços
+# no caminho; os atalhos do instalador apontam para o .ico.
+qt_add_resources(analista "icones" PREFIX "/" FILES icone/analista.png)
 
 enable_testing()
 qt_add_executable(testes_app tests/testes.cpp)
