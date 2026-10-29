@@ -12,6 +12,7 @@ import { compilarApp, FaltaFerramenta } from './qt-compilar.js';
 //     analista.ico
 //     node/node.exe          o mesmo Node que corre este comando
 //     motor/                 package.json, src/ e node_modules/ (sem testes, sem dados, sem .env)
+//     LICENSE.txt, licencas/ a licença da app e as dos outros (o Qt, o Node e as bibliotecas): distribuí-los obriga a isso
 const projeto = path.resolve(import.meta.dirname, '..');
 const versao = JSON.parse(readFileSync(path.join(projeto, 'package.json'), 'utf8')).version;
 const build = path.join(projeto, 'app', 'build-release');
@@ -44,6 +45,16 @@ if (windeployqt) {
 // O Node: o mesmo executável que está a correr isto. No Windows é um só ficheiro, que funciona sozinho.
 mkdirSync(path.join(destino, 'node'));
 cpSync(process.execPath, path.join(destino, 'node', exe('node')));
+// A licença do Node que vai é a do Node que vai: ao lado do executável (Windows) ou uma pasta acima (Linux, macOS).
+// Se não houver, fica a cópia guardada no projeto.
+const licencaDoNode = primeiro(path.join(path.dirname(process.execPath), 'LICENSE'), path.join(path.dirname(process.execPath), '..', 'LICENSE'))
+  ?? path.join(projeto, 'instalador', 'licencas', 'node-LICENSE.txt');
+cpSync(licencaDoNode, path.join(destino, 'node', 'LICENSE'));
+
+// A licença da app e os avisos dos outros. As das bibliotecas do motor já vão dentro de motor/node_modules.
+cpSync(path.join(projeto, 'LICENSE'), path.join(destino, 'LICENSE.txt'));
+mkdirSync(path.join(destino, 'licencas'));
+for (const f of ['AVISOS.txt', 'LGPL-3.txt', 'GPL-3.txt']) cpSync(path.join(projeto, 'instalador', 'licencas', f), path.join(destino, 'licencas', f));
 
 // O motor, só com o que corre: nada de testes, dados, chaves ou ficheiros de desenvolvimento.
 const motor = path.join(destino, 'motor');

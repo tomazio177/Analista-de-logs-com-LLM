@@ -1,0 +1,38 @@
+# Corre os testes a cada push para o main e a cada pull request.
+name: Testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  motor:
+    name: Motor (Node)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  app:
+    name: App (C++ e Qt)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      # Os testes da app falam com o motor a sério, por isso também precisam do Node e das dependências.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Instalar o Qt 6 e as ferramentas de compilação
+        run: sudo apt-get update && sudo apt-get install -y qt6-base-dev cmake ninja-build g++ libgl1-mesa-dev
+      - run: cmake -S app -B app/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build app/build
+      # Num ecrã virtual (QT_QPA_PLATFORM=offscreen, definido no CMakeLists): não abre janelas.
+      - run: ctest --test-dir app/build --output-on-failure

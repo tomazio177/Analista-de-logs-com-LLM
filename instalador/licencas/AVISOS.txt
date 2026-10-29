@@ -1,0 +1,28 @@
+Analista de logs: licenças de terceiros
+=======================================
+
+O Analista de logs é software livre, sob a licença MIT (ficheiro LICENSE.txt).
+Esta instalação inclui também programas e bibliotecas de outros autores, cada um com a sua licença.
+
+Qt 6 (The Qt Company), sob a LGPL v3 (LGPL-3.txt, que remete para GPL-3.txt)
+  A app usa o Qt através das bibliotecas (DLL) que estão ao lado do analista.exe: Qt6Core.dll, Qt6Gui.dll,
+  Qt6Widgets.dll e os plugins nas subpastas. Podes substituí-las por outra versão compatível do Qt.
+  Código-fonte do Qt: https://download.qt.io/official_releases/qt/
+  Código-fonte desta app: https://github.com/tomazio177/Analista-de-logs-com-LLM
+
+Bibliotecas de execução do MinGW-w64 (libstdc++-6.dll, libgcc_s_seh-1.dll, libwinpthread-1.dll)
+  libstdc++ e libgcc: GPL v3 com a "GCC Runtime Library Exception", que permite distribuí-las com programas
+  compilados pelo GCC. libwinpthread: licença MIT/BSD do projeto MinGW-w64.
+
+Node.js (pasta node), sob a licença MIT, mais as licenças das bibliotecas que o Node inclui: node/LICENSE.
+
+Bibliotecas do motor (pasta motor/node_modules). Cada uma traz a sua licença na própria pasta:
+  @anthropic-ai/sdk ............ Apache 2.0
+  @opentelemetry/api ........... Apache 2.0
+  @babel/runtime ............... MIT
+  @stablelib/base64 ............ MIT
+  json-schema-to-ts ............ MIT
+  standardwebhooks ............. MIT (declarada no package.json; o pacote não traz ficheiro de licença)
+  ts-algebra ................... MIT
+  zod .......................... MIT
+  fast-sha256 .................. Unlicense (domínio público)

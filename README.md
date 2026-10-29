@@ -1,5 +1,7 @@
 # Analista de logs com LLM
 
+[![Testes](https://github.com/tomazio177/Analista-de-logs-com-LLM/actions/workflows/testes.yml/badge.svg)](https://github.com/tomazio177/Analista-de-logs-com-LLM/actions/workflows/testes.yml)
+
 Vigia a rede de casa e o PC: descobre que aparelhos estão ligados e que portas têm abertas, lê as palavras-passe erradas registadas no Windows, guarda o histórico e pede a um LLM que explique, em português simples, o que merece atenção.
 
 O scanner, a descoberta de aparelhos, os logs e a base de dados usam só módulos do próprio Node. As únicas dependências são as da triagem: o SDK da Anthropic e o Zod.
@@ -14,6 +16,10 @@ O scanner, a descoberta de aparelhos, os logs e a base de dados usam só módulo
 </picture>
 
 Tudo corre no PC, menos uma parte: o Claude. Os dados só saem para a internet nesse ponto, e já saem preparados (metade do MAC, sem os nomes de utilizador do PC). As respostas do dono voltam para a base de dados e entram na triagem seguinte.
+
+## Descarregar
+
+A app para Windows (com instalador) está nas [Releases](https://github.com/tomazio177/Analista-de-logs-com-LLM/releases). O instalador não tem assinatura digital, por isso o Windows mostra o aviso do SmartScreen: **Mais informações → Executar mesmo assim**.
 
 ## Como correr
 
@@ -103,6 +109,10 @@ Estas são as fontes de falsos positivos e falsos negativos — e a parte mais i
 - [x] **Fase 1** — inventário da rede, histórico em SQLite, comparação entre varrimentos
 - [x] **Fase 2** — registos do Windows (logins falhados, evento 4625) e triagem com um LLM, resposta validada com Zod
 - [ ] **Fase 3** — varrimento automático de hora a hora, alertas só quando há algo estranho, painel web
+
+## Licença
+
+MIT, © 2026 Tomás Santos (ficheiro [`LICENSE`](LICENSE)). A app para Windows inclui o Qt (LGPL v3), o Node.js e as bibliotecas do motor, cada um com a sua licença: [`instalador/licencas/AVISOS.txt`](instalador/licencas/AVISOS.txt).
 
 ## O que aprendi
 
