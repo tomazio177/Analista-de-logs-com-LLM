@@ -238,7 +238,7 @@ export function guardarTriagem(db, { varrimentoId, modelo, entrada, resposta, er
 }
 
 export const ultimaTriagemValida = (db) =>
-  db.prepare('SELECT id, data, resposta, ancoras FROM triagens WHERE erro IS NULL AND resposta IS NOT NULL ORDER BY id DESC LIMIT 1').get();
+  db.prepare('SELECT id, data, modelo, entrada, resposta, ancoras FROM triagens WHERE erro IS NULL AND resposta IS NOT NULL ORDER BY id DESC LIMIT 1').get();
 
 // As respostas do dono às perguntas da triagem. Cada nota fica presa àquilo de que fala:
 // um aparelho (pelo MAC), um alerta concreto (tipo, origem e hora de início) ou nada em particular ("geral").

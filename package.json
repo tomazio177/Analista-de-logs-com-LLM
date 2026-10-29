@@ -14,6 +14,7 @@
     "notas": "node --disable-warning=ExperimentalWarning src/notas.js --listar",
     "vigiar": "node --disable-warning=ExperimentalWarning src/vigiar.js",
     "ferramentas": "node scripts/ferramentas.js",
+    "app": "node scripts/app.js",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\""
   },
   "license": "MIT",

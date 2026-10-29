@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { comBaseTemporaria } from './ajuda.js';
 import { guardar, guardarNota } from '../src/historico.js';
-import { fazerTriagem, perguntas, responder, respostas, apagarResposta, lerLogs, CONTRATO } from '../src/motor.js';
+import { fazerTriagem, ultimaTriagem, perguntas, responder, respostas, apagarResposta, lerLogs, CONTRATO } from '../src/motor.js';
 
 const correr = promisify(execFile);
 
@@ -99,4 +99,23 @@ test('fora do Windows, ler os logins dá um erro com código, não uma exceção
   comBaseTemporaria(async (abrirBase, ficheiro) => {
     assert.equal((await lerLogs(abrirBase())).erro.codigo, 'nao-windows');
     assert.equal((await comando(ficheiro, 'logs.js')).documento.erro.codigo, 'nao-windows');
+  }));
+
+test('a última triagem sai da base de dados com as respostas já refletidas, sem chamar a API', () =>
+  comBaseTemporaria(async (abrirBase, ficheiro) => {
+    const db = abrirBase();
+    assert.equal(ultimaTriagem(db).erro.codigo, 'sem-triagem');
+    casa(db);
+    const feita = await fazerTriagem(db, { cliente: clienteFalso(resposta) });
+    responder(db, { n: 1, texto: 'É de alguém de casa.' });
+
+    const ultima = ultimaTriagem(db);
+    assert.equal(ultima.triagem_id, feita.triagem_id);
+    assert.equal(ultima.resumo, 'Nada de grave.');
+    assert.deepEqual(ultima.perguntas.map((p) => p.respondida), [true, false]);
+    assert.deepEqual(ultima.uso, { entrada: null, saida: null });
+
+    // E pelo comando, como a app a vai pedir ao abrir.
+    const doComando = await comando(ficheiro, 'triar.js', '--ultima');
+    assert.equal(doComando.documento.achados[0].titulo, 'Portátil novo');
   }));

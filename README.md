@@ -41,8 +41,9 @@ npm run notas                 # mostra as respostas guardadas (npm run notas -- 
 Os logs só funcionam no Windows e num PowerShell aberto como administrador: o registo de Segurança não se lê sem privilégios. O `npm run scan` continua a não precisar deles. Para a triagem, copia o `.env.example` para `.env` e preenche a `ANTHROPIC_API_KEY` (o `.env` já está no `.gitignore`).
 
 ```bash
-npm test          # testes automáticos: não precisam de rede, de Windows nem de chave da API
+npm test             # testes automáticos: não precisam de rede, de Windows nem de chave da API
 npm run ferramentas  # diz o que está instalado para a app em C++ e o que falta
+npm run app          # compila a app e abre-a (npm run app -- --testes corre os testes dela)
 ```
 
 ## Como funciona
@@ -54,6 +55,22 @@ npm run ferramentas  # diz o que está instalado para a app em C++ e o que falta
 5. **Logins falhados** (`src/eventos.js`, `src/logins.js`, `src/logs.js`) — lê o evento 4625 do Windows pelo PowerShell e aplica regras fixas: rajadas (5 tentativas em 10 minutos da mesma origem), tentativas vindas de outro aparelho da rede (a ligação com a porta 445 aberta da fase 1) e nomes de utilizador que não existem. A origem de cada tentativa é cruzada com os aparelhos dos varrimentos.
 6. **Triagem com LLM** (`src/triagem.js`, `src/triar.js`) — junta o último varrimento, os logins falhados dos últimos 7 dias e os alertas das regras, e pede ao Claude uma triagem em português. A resposta segue um esquema fixo (nível geral, achados, perguntas para o dono) e é validada com Zod. Cada achado separa o que está nos dados (`nos_dados`) do que o modelo sabe de fora (`conhecimento_geral`, por exemplo como o Edge se comporta ou que serviço costuma estar numa porta), e só depois tira a conclusão. Assim vê-se de onde vem cada parte, e a confiança só pode ser "alta" quando a conclusão sai dos dados. Os IPs, horas e portas citados como factos são procurados nos dados enviados; os que lá não estão aparecem assinalados (`src/verificar.js`). As regras decidem o que é alerta; o modelo explica e junta sinais. Os alertas vindos da rede têm uma gravidade mínima que o modelo não pode baixar (se tentar, o programa repõe-na e diz que o fez); os deste PC não têm, e o modelo pode baixá-la se disser porquê, como na rajada do Edge, que era um programa a repetir uma credencial. Os nomes de utilizador dos logins feitos neste PC não seguem para o modelo: quem se engana escreve às vezes a palavra-passe nesse campo. Dos MACs só segue o prefixo do fabricante, e os nomes dos aparelhos são tratados como dados, não como instruções — qualquer pessoa pode dar ao telemóvel um nome que pareça uma ordem. Cada triagem fica guardada na tabela `triagens` com os dados enviados e o texto devolvido, tal e qual, mesmo quando falha (recusa, resposta cortada, fora do esquema, erro da API).
 7. **Respostas do dono** (`src/notas.js`) — cada pergunta da triagem diz de que aparelho ou alerta fala, e a resposta fica presa a isso: a um aparelho pelo MAC, a um alerta pelo tipo, origem e hora de início. A triagem seguinte recebe-as junto do aparelho ou do alerta e não volta a perguntar o mesmo. "A rajada do Edge de 22/10 fui eu" não serve para desculpar uma rajada nova noutro dia, e uma resposta não baixa a gravidade mínima de um alerta vindo da rede. O modelo cita as respostas como "o dono disse", porque são testemunho e não medição.
+
+## A app
+
+Uma janela em C++ com Qt 6 (`app/`) por cima do motor. Não calcula nada: pede ao motor, pelo contrato JSON, e mostra o que ele devolve.
+
+<img src="docs/app-exemplo.png" width="520" alt="A janela da app com o nível geral, dois achados e duas perguntas, uma já respondida. Dados de exemplo.">
+
+*Dados de exemplo (uma casa inventada).*
+
+- **Abre com a última triagem**, sem gastar a API. O botão «Verificar agora» varre a rede, lê os logins e pede uma triagem nova, com barra de progresso.
+- **Responde-se na própria janela.** A resposta fica presa ao aparelho ou ao alerta de que a pergunta fala.
+- **O texto vindo da rede nunca é interpretado.** Nomes de aparelhos chegam como texto simples (um QLabel interpretaria HTML) e sem caracteres de controlo nem marcas que invertem o sentido do texto.
+- **Diz o que correu mal e o que fazer**: rede por aprovar (pede confirmação), falta de administrador, falta da chave da API, motor com outra versão do contrato.
+- **Testes** (`npm run app -- --testes`): correm num ecrã virtual e falam com o motor a sério, numa base de dados temporária.
+
+A app acha o Node e o motor sozinha. Se não os achar, `ANALISTA_NODE` e `ANALISTA_MOTOR` indicam onde estão.
 
 ## Usar a partir de outro programa
 

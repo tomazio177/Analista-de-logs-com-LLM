@@ -31,9 +31,9 @@ node --disable-warning=ExperimentalWarning <pasta do projeto>/src/<comando>.js [
 |---|---|---|
 | `index.js` (varrer a rede) | `--aprovar` | `rede`, `interface`, `ip_deste_pc`, `router {ip, mac}`, `aprovada_agora`, `anterior` (data do varrimento anterior ou `null`), `aparelhos[]`, `mudancas[]` |
 | `logs.js` (logins falhados) | dias como primeiro argumento (1–365, por omissão 7) | `dias`, `registo_mais_antigo`, `total`, `novos`, `logins[]`, `alertas[]`, `periodos_possivelmente_incompletos[]` |
-| `triar.js` (triagem) | `--ver-dados` devolve só `dados`, sem enviar nada | `triagem_id`, `modelo`, `uso {entrada, saida}`, `nivel_geral`, `resumo`, `achados[]`, `avisos[]`, `perguntas[]` |
+| `triar.js` (triagem) | `--ver-dados` devolve só `dados`, sem enviar nada; `--ultima` devolve a última triagem guardada, sem chamar a API (é o que a app abre ao arrancar) | `triagem_id`, `data`, `modelo`, `uso {entrada, saida}` (`null` na última guardada), `nivel_geral`, `resumo`, `achados[]`, `avisos[]`, `perguntas[]` |
 | `notas.js --perguntas` | | `triagem {id, data}`, `perguntas[]` da última triagem |
-| `notas.js --pergunta N --texto "…"` | | `resposta_id` |
+| `notas.js --pergunta N --texto=…` | Escreve o texto na mesma peça que `--texto=`: assim uma resposta que comece por `-` não é tomada por outra opção | `resposta_id` |
 | `notas.js --listar` | | `respostas[]` |
 | `notas.js --apagar N` | | nada além de `ok` |
 | `vigiar.js` (tudo de seguida) | `--aprovar` | `varrimento`, `logins` e `triagem`: os três resultados acima, cada um com o seu `ok`. O `ok` de fora é o da triagem |

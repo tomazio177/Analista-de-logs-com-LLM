@@ -103,7 +103,7 @@ test('uma tabela triagens de antes das notas ganha a coluna das âncoras', () =>
       INSERT INTO triagens VALUES (1, '2026-10-27T10:00:00Z', 1, 'm', '{}', '{"perguntas_ao_dono":["Quem foi?"]}', NULL);`);
     antiga.close();
     const db = abrirBase();
-    assert.deepEqual({ ...ultimaTriagemValida(db) }, { id: 1, data: '2026-10-27T10:00:00Z', resposta: '{"perguntas_ao_dono":["Quem foi?"]}', ancoras: null });
+    assert.deepEqual({ ...ultimaTriagemValida(db) }, { id: 1, data: '2026-10-27T10:00:00Z', modelo: 'm', entrada: '{}', resposta: '{"perguntas_ao_dono":["Quem foi?"]}', ancoras: null });
   }));
 
 test('a última triagem válida ignora as que falharam', () =>

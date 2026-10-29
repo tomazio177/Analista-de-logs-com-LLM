@@ -182,7 +182,7 @@ export function mostrarTriagem(r) {
     for (const p of r.perguntas) console.log(`  ${p.n}. ${p.pergunta}`);
     console.log('\nPara responder (a triagem seguinte já não pergunta o mesmo): npm run responder\n');
   }
-  console.log(`(${r.modelo}: ${r.uso.entrada} tokens de entrada, ${r.uso.saida} de saída)\n`);
+  if (r.uso.entrada != null) console.log(`(${r.modelo}: ${r.uso.entrada} tokens de entrada, ${r.uso.saida} de saída)\n`);
 }
 
 // --- Respostas do dono -------------------------------------------------------------------------------------

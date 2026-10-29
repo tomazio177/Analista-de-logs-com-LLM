@@ -165,18 +165,38 @@ export async function fazerTriagem(db, { cliente } = {}) {
   }
 
   const triagemId = guardarTriagem(db, { varrimentoId, modelo: resultado.modelo, entrada: dados, resposta: resultado.bruto, erro: null, ancoras });
-  const { triagem, avisos } = aplicarRegras(dados, resultado.triagem);
+  return apresentarTriagem(db, {
+    id: triagemId, data: new Date().toISOString(), modelo: resultado.modelo, dados, resposta: resultado.triagem,
+    ancoras, uso: { entrada: resultado.uso?.input_tokens ?? null, saida: resultado.uso?.output_tokens ?? null },
+  });
+}
+
+// A triagem tal como a app a mostra: com as regras aplicadas e as perguntas a dizer se já têm resposta.
+// Serve tanto à triagem acabada de fazer como à última guardada, que a app abre sem gastar a API.
+function apresentarTriagem(db, { id, data, modelo, dados, resposta, ancoras, uso }) {
+  const { triagem, avisos } = aplicarRegras(dados, resposta);
   return {
     ok: true,
-    triagem_id: triagemId,
-    modelo: resultado.modelo,
-    uso: { entrada: resultado.uso?.input_tokens ?? null, saida: resultado.uso?.output_tokens ?? null },
+    triagem_id: id,
+    data,
+    modelo,
+    uso,
     nivel_geral: triagem.nivel_geral,
     resumo: triagem.resumo,
     achados: triagem.achados.map((a) => ({ ...a, factos_sem_apoio: semApoioNosDados(a.nos_dados, dados) })),
     avisos,
-    perguntas: perguntasDe(db, { id: triagemId, resposta: resultado.bruto, ancoras: JSON.stringify(ancoras) }),
+    perguntas: perguntasDe(db, { id, resposta: JSON.stringify(resposta), ancoras: JSON.stringify(ancoras) }),
   };
+}
+
+// A última triagem guardada, sem chamar a API.
+export function ultimaTriagem(db) {
+  const t = ultimaTriagemValida(db);
+  if (!t) return falha('sem-triagem', 'Ainda não há nenhuma triagem com resposta. Faz primeiro uma triagem.');
+  return apresentarTriagem(db, {
+    id: t.id, data: t.data, modelo: t.modelo, dados: JSON.parse(t.entrada), resposta: JSON.parse(t.resposta),
+    ancoras: t.ancoras && JSON.parse(t.ancoras), uso: { entrada: null, saida: null },
+  });
 }
 
 // --- Respostas do dono -------------------------------------------------------------------------------------
