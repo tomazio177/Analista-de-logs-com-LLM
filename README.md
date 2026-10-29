@@ -1,10 +1,19 @@
 # Analista de logs com LLM
 
-Vigia a rede de casa: descobre que aparelhos estão ligados, que portas têm abertas, guarda o histórico e diz o que mudou desde a última vez. A fase seguinte põe um LLM a fazer a triagem dessas mudanças.
+Vigia a rede de casa e o PC: descobre que aparelhos estão ligados e que portas têm abertas, lê as palavras-passe erradas registadas no Windows, guarda o histórico e pede a um LLM que explique, em português simples, o que merece atenção.
 
 O scanner, a descoberta de aparelhos, os logs e a base de dados usam só módulos do próprio Node. As únicas dependências são as da triagem: o SDK da Anthropic e o Zod.
 
 > **Só contra redes tuas.** Varrer redes alheias sem autorização é crime (em Portugal, Lei do Cibercrime, Lei 109/2009). Este projeto existe para conhecer e proteger a rede de casa.
+
+## O caminho da informação
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/mapa-escuro.svg">
+  <img src="docs/mapa-claro.svg" width="460" alt="A rede e o Windows enchem a base de dados. A triagem prepara os dados, e só esses saem do PC para o Claude. A resposta volta, é verificada e aparece no ecrã. As tuas respostas voltam para a base de dados.">
+</picture>
+
+Tudo corre no PC, menos uma parte: o Claude. Os dados só saem para a internet nesse ponto, e já saem preparados (metade do MAC, sem os nomes de utilizador do PC). As respostas do dono voltam para a base de dados e entram na triagem seguinte.
 
 ## Como correr
 
