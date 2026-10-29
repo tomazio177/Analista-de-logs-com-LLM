@@ -41,7 +41,8 @@ npm run notas                 # mostra as respostas guardadas (npm run notas -- 
 Os logs só funcionam no Windows e num PowerShell aberto como administrador: o registo de Segurança não se lê sem privilégios. O `npm run scan` continua a não precisar deles. Para a triagem, copia o `.env.example` para `.env` e preenche a `ANTHROPIC_API_KEY` (o `.env` já está no `.gitignore`).
 
 ```bash
-npm test   # testes automáticos: não precisam de rede, de Windows nem de chave da API
+npm test          # testes automáticos: não precisam de rede, de Windows nem de chave da API
+npm run ferramentas  # diz o que está instalado para a app em C++ e o que falta
 ```
 
 ## Como funciona
