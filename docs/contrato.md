@@ -12,7 +12,7 @@ node --disable-warning=ExperimentalWarning <pasta do projeto>/src/<comando>.js [
 - A pasta de trabalho não importa: a base de dados e o `.env` são procurados a partir da pasta do projeto.
 - Os dados (base de dados e `.env` com a chave) ficam na pasta do utilizador: `%APPDATA%\Analista de logs` no Windows, `~/.local/share/analista-de-logs` no Linux, `~/Library/Application Support/Analista de logs` no macOS. `ANALISTA_DADOS=<pasta>` troca essa pasta e `ANALISTA_DB=<caminho>` troca só a base de dados. Uma base antiga em `data/analista.db` é copiada para lá na primeira vez.
 - O stdout traz **um só** documento JSON, numa linha, em UTF-8. O código de saída é 0 quando `ok` é `true` e 1 nos outros casos.
-- O `scan` e o `vigiar` escrevem o andamento no **stderr**, um objeto por linha: `{"progresso":{"fase":"inicio",…}}`, `{"progresso":{"fase":"descobrir","feitos":120,"total":254}}`, `{"progresso":{"fase":"portas","aparelhos":7,"portas":18}}`. Serve para uma barra de progresso; pode ser ignorado.
+- O `scan` e o `vigiar` escrevem o andamento no **stderr**, um objeto por linha: `{"progresso":{"fase":"inicio",…}}`, `{"progresso":{"fase":"descobrir","feitos":120,"total":254}}`, `{"progresso":{"fase":"portas","aparelhos":7,"portas":18}}`. O `vigiar` escreve ainda `{"progresso":{"fase":"triagem","dados":{…}}}` antes de chamar o modelo, com os dados que vão seguir. Serve para uma barra de progresso; pode ser ignorado.
 
 ## O documento
 
@@ -31,7 +31,7 @@ node --disable-warning=ExperimentalWarning <pasta do projeto>/src/<comando>.js [
 |---|---|---|
 | `index.js` (varrer a rede) | `--aprovar` | `rede`, `interface`, `ip_deste_pc`, `router {ip, mac}`, `aprovada_agora`, `anterior` (data do varrimento anterior ou `null`), `aparelhos[]`, `mudancas[]` |
 | `logs.js` (logins falhados) | dias como primeiro argumento (1–365, por omissão 7) | `dias`, `registo_mais_antigo`, `total`, `novos`, `logins[]`, `alertas[]`, `periodos_possivelmente_incompletos[]` |
-| `triar.js` (triagem) | `--ver-dados` devolve só `dados`, sem enviar nada; `--ultima` devolve a última triagem guardada, sem chamar a API (é o que a app abre ao arrancar) | `triagem_id`, `data`, `modelo`, `uso {entrada, saida}` (`null` na última guardada), `nivel_geral`, `resumo`, `achados[]`, `avisos[]`, `perguntas[]` |
+| `triar.js` (triagem) | `--ver-dados` devolve só `dados`, sem enviar nada; `--ultima` devolve a última triagem guardada, sem chamar a API (é o que a app abre ao arrancar) | `triagem_id`, `data`, `modelo`, `uso {entrada, saida}` (`null` na última guardada), `nivel_geral`, `resumo`, `dados` (o que seguiu para o modelo, com os ids `d1`, `a1`… que os achados citam), `achados[]`, `avisos[]`, `perguntas[]` |
 | `notas.js --perguntas` | | `triagem {id, data}`, `perguntas[]` da última triagem |
 | `notas.js --pergunta N --texto=…` | Escreve o texto na mesma peça que `--texto=`: assim uma resposta que comece por `-` não é tomada por outra opção | `resposta_id` |
 | `notas.js --listar` | | `respostas[]` |
