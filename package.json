@@ -1,7 +1,7 @@
 {
   "name": "analista-de-logs-com-llm",
   "version": "0.1.0",
-  "description": "Vigia a rede de casa: descobre aparelhos, guarda o histórico e avisa quando algo muda.",
+  "description": "Vigia a rede de casa e os logins do Windows, e um LLM explica o que merece atenção. Motor em Node, app em C++/Qt.",
   "author": "Tomás Santos",
   "type": "module",
   "engines": {
