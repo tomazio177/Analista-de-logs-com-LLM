@@ -8,6 +8,7 @@
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QLabel>
+#include <QCursor>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPauseAnimation>
@@ -433,10 +434,15 @@ void DelegadoEvidencia::paint(QPainter *p, const QStyleOptionViewItem &o, const 
         p->setOpacity(0.4);
 
     // O fundo: linha selecionada ou com o rato, e o halo de uma citação clicada.
-    if (o.state & QStyle::State_Selected)
-        p->fillRect(r, Tema::cor(Cor::SuperficieElevada));
-    else if (o.state & QStyle::State_MouseOver)
-        p->fillRect(r, Tema::cor(Cor::Superficie));
+    if (const qreal s = modelo_->atual.de(i); s > 0) {
+        QColor c = Tema::cor(Cor::SuperficieElevada);
+        c.setAlphaF(s);
+        p->fillRect(r, c);
+    } else if (const qreal h = modelo_->rato.de(i); h > 0) {
+        QColor c = Tema::cor(Cor::Superficie);
+        c.setAlphaF(h);
+        p->fillRect(r, c);
+    }
     if (const qreal h = modelo_->halo(i); h > 0) {
         QColor c = Tema::cor(Cor::ClaudeTenue);
         c.setAlphaF(c.alphaF() * h * 1.6);
@@ -695,7 +701,7 @@ PainelEvidencia::PainelEvidencia(QWidget *pai) : QWidget(pai), modelo_(new Model
     lista_->setFrameShape(QFrame::NoFrame);
     lista_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     lista_->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    lista_->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    lista_->setSelectionMode(QAbstractItemView::SingleSelection);
     lista_->setMouseTracking(true);
     lista_->setAttribute(Qt::WA_MacShowFocusRect, false);
     lista_->viewport()->setAttribute(Qt::WA_Hover);
@@ -707,6 +713,26 @@ PainelEvidencia::PainelEvidencia(QWidget *pai) : QWidget(pai), modelo_(new Model
     v->addWidget(lista_, 1);
 
     feixe_ = new Feixe(lista_->viewport());
+    lista_->viewport()->installEventFilter(this);
+    for (QVariantAnimation *a : {&ratoAnim_, &atualAnim_}) {
+        a->setStartValue(0.0);
+        a->setEndValue(1.0);
+        a->setEasingCurve(Tema::resposta());
+    }
+    connect(&ratoAnim_, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
+        modelo_->rato.t = v.toReal();
+        for (int i : {modelo_->rato.nova, modelo_->rato.antiga})
+            if (i >= 0)
+                lista_->viewport()->update(lista_->visualRect(modelo_->index(i)));
+    });
+    connect(&atualAnim_, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
+        modelo_->atual.t = v.toReal();
+        for (int i : {modelo_->atual.nova, modelo_->atual.antiga})
+            if (i >= 0)
+                lista_->viewport()->update(lista_->visualRect(modelo_->index(i)));
+    });
+    connect(lista_->selectionModel(), &QItemSelectionModel::currentChanged, this,
+            [this](const QModelIndex &agora) { mudar(modelo_->atual, atualAnim_, agora.isValid() ? agora.row() : -1); });
 
     cascata_.setStartValue(0.0);
     cascata_.setEasingCurve(QEasingCurve::OutCubic); // o tempo avança; cada marca tem a sua curva no modelo
@@ -722,6 +748,37 @@ PainelEvidencia::PainelEvidencia(QWidget *pai) : QWidget(pai), modelo_(new Model
     halo_.setStartValue(1.0);
     halo_.setEndValue(0.0);
     halo_.setEasingCurve(QEasingCurve::InCubic); // fica aceso e só no fim se apaga
+}
+
+void PainelEvidencia::mudar(ModeloEvidencia::Transicao &tr, QVariantAnimation &anim, int linha)
+{
+    if (linha == tr.nova)
+        return;
+    tr.antiga = tr.nova;
+    tr.nova = linha;
+    anim.stop();
+    anim.setDuration(Tema::duracao(120));
+    if (anim.duration() == 0) {
+        tr.t = 1;
+        lista_->viewport()->update();
+        return;
+    }
+    tr.t = 0;
+    anim.start();
+}
+
+bool PainelEvidencia::eventFilter(QObject *o, QEvent *e)
+{
+    if (o == lista_->viewport()) {
+        if (e->type() == QEvent::MouseMove || e->type() == QEvent::HoverMove) {
+            const QPoint pos = lista_->viewport()->mapFromGlobal(QCursor::pos());
+            const QModelIndex i = lista_->indexAt(pos);
+            mudar(modelo_->rato, ratoAnim_, i.isValid() ? i.row() : -1);
+        } else if (e->type() == QEvent::Leave || e->type() == QEvent::HoverLeave) {
+            mudar(modelo_->rato, ratoAnim_, -1);
+        }
+    }
+    return QWidget::eventFilter(o, e);
 }
 
 void PainelEvidencia::atualizarCabecalho()

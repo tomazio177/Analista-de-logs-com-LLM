@@ -2,7 +2,6 @@
 
 #include <QJsonObject>
 #include <QMainWindow>
-#include <QVariantAnimation>
 #include <functional>
 
 class Botao;
@@ -10,6 +9,7 @@ class IndicadorClaude;
 class LinhaDeProgresso;
 class Motor;
 class PainelEvidencia;
+class QParallelAnimationGroup;
 class QLabel;
 class QScrollArea;
 class QVBoxLayout;
@@ -95,5 +95,5 @@ private:
     bool aprovar_ = false;
     QString pastaDeDados_;
     QList<QWidget *> porRevelar_;
-    QVariantAnimation revelacao_;
+    QParallelAnimationGroup *revelacao_ = nullptr;
 };

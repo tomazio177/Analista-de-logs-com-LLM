@@ -4,6 +4,7 @@
 #include <QFontDatabase>
 #include <QPalette>
 #include <QSettings>
+#include <QStyleHints>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -65,7 +66,7 @@ QColor cor(Cor c)
     case Cor::HairlineForte: return QColor(255, 255, 255, 26); // 0,10
     case Cor::Texto: return QColor(0xE6, 0xED, 0xF7);
     case Cor::TextoSecundario: return QColor(0x7D, 0x8A, 0xA0);
-    case Cor::TextoTenue: return QColor(0x4A, 0x55, 0x68);
+    case Cor::TextoTenue: return QColor(0x6E, 0x7A, 0x8E); // 4,5:1 no substrato: os números de linha também são texto
     case Cor::Claude: return QColor(0x3D, 0xE0, 0xFF);
     case Cor::ClaudeTenue: return QColor(0x3D, 0xE0, 0xFF, 36); // 0,14
     case Cor::Erro: return QColor(0xFF, 0x4D, 0x4D);
@@ -131,6 +132,8 @@ void aplicar(QApplication &app)
 {
     carregarFontes();
     app.setFont(fonte(Letra::Corpo));
+    // A barra de título do Windows e os diálogos do sistema também escuros, mesmo com o Windows em modo claro.
+    app.styleHints()->setColorScheme(Qt::ColorScheme::Dark);
 
     QPalette p;
     p.setColor(QPalette::Window, cor(Cor::Substrato));

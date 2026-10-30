@@ -8,7 +8,6 @@
 #include "tema.h"
 #include "texto.h"
 
-#include <QCheckBox>
 #include <QDateTime>
 #include <QDialog>
 #include <QEnterEvent>
@@ -22,8 +21,13 @@
 #include <QMessageBox>
 #include <QPainter>
 #include <QPainterPath>
+#include <QParallelAnimationGroup>
+#include <QSequentialAnimationGroup>
 #include <QScrollArea>
 #include <QSplitter>
+#include <QTextBlock>
+#include <QTextDocument>
+#include <QTextLayout>
 #include <QTime>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -110,6 +114,82 @@ QFrame *hairline(Qt::Orientation o = Qt::Horizontal)
     return f;
 }
 
+// A conclusão de um achado, que é a voz do Claude. Quando a resposta chega, escreve-se com um cursor cyan no fim.
+// É só apresentação: o texto já chegou inteiro, fica completo em completo_ e reserva logo a altura final (nada salta).
+class Conclusao : public QLabel
+{
+public:
+    explicit Conclusao(const QString &texto) : QLabel(texto), completo_(texto)
+    {
+        setObjectName(QStringLiteral("conclusao"));
+        setAlignment(Qt::AlignTop | Qt::AlignLeft); // com a altura final reservada, o texto cresce de cima
+        setTextFormat(Qt::PlainText);
+        setWordWrap(true);
+        setTextInteractionFlags(Qt::TextSelectableByMouse);
+        setFont(Tema::fonte(Letra::Corpo));
+        pintar(this, Tema::cor(Cor::Texto));
+        escrita_.setEasingCurve(Tema::resposta());
+        connect(&escrita_, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) { setText(completo_.left(v.toInt())); });
+        connect(&escrita_, &QVariantAnimation::finished, this, [this] {
+            setText(completo_);
+            setMinimumHeight(0);
+            piscadelas_ = 6; // três piscadelas e o cursor sai
+            piscar_.start(530);
+        });
+        connect(&piscar_, &QTimer::timeout, this, [this] {
+            cursor_ = --piscadelas_ > 0 && !cursor_;
+            if (piscadelas_ <= 0) {
+                cursor_ = false;
+                piscar_.stop();
+            }
+            update();
+        });
+    }
+    void escrever()
+    {
+        if (Tema::reduzirMovimento() || completo_.isEmpty())
+            return;
+        setMinimumHeight(heightForWidth(width()));
+        cursor_ = true;
+        escrita_.setStartValue(0);
+        escrita_.setEndValue(int(completo_.size()));
+        escrita_.setDuration(std::clamp(int(completo_.size()) * 12, 320, 1100));
+        setText(QString());
+        escrita_.start();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *e) override
+    {
+        QLabel::paintEvent(e);
+        if (!cursor_)
+            return;
+        // O fim do texto, pelo mesmo desenho de linhas que o QLabel usa.
+        QTextDocument doc;
+        doc.setDefaultFont(font());
+        doc.setDocumentMargin(0);
+        doc.setTextWidth(contentsRect().width());
+        doc.setPlainText(text());
+        doc.size();
+        const QTextBlock bloco = doc.lastBlock();
+        const int pos = bloco.length() - 1;
+        const QTextLine linha = bloco.layout()->lineForTextPosition(pos);
+        if (!linha.isValid())
+            return;
+        const qreal x = linha.cursorToX(pos);
+        const qreal y = bloco.layout()->position().y() + linha.y();
+        QPainter p(this);
+        p.fillRect(QRectF(contentsRect().left() + x + 1, contentsRect().top() + y + 2, 2, linha.height() - 3), Tema::cor(Cor::Claude));
+    }
+
+private:
+    QString completo_;
+    QVariantAnimation escrita_;
+    QTimer piscar_;
+    int piscadelas_ = 0;
+    bool cursor_ = false;
+};
+
 // Um compartimento com uma régua vertical de 2 px à esquerda: a cor diz a gravidade, ou que é a voz do Claude.
 class Regua : public QWidget
 {
@@ -185,6 +265,8 @@ JanelaPrincipal::JanelaPrincipal(Motor *motor, QWidget *pai) : QMainWindow(pai),
     b->addWidget(contexto_);
     estado_ = etiqueta(QString(), Letra::Corpo, Cor::TextoSecundario);
     estado_->setWordWrap(false);
+    // Um estado comprido não alarga a janela: corta-se, e o texto inteiro fica na dica.
+    estado_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     estado_->hide();
     b->addWidget(estado_, 1);
     b->addStretch(0);
@@ -306,7 +388,6 @@ JanelaPrincipal::JanelaPrincipal(Motor *motor, QWidget *pai) : QMainWindow(pai),
     raiz->addWidget(divisor, 1);
     setCentralWidget(centro);
 
-    revelacao_.setEasingCurve(Tema::resposta());
 
     connect(botao_, &QPushButton::clicked, this, [this] { verificarAgora(); });
     connect(motor_, &Motor::terminou, this, &JanelaPrincipal::aoTerminar);
@@ -392,9 +473,9 @@ void JanelaPrincipal::abrirDefinicoes()
     v->setContentsMargins(24, 22, 24, 20);
     v->setSpacing(10);
     v->addWidget(rotuloMeta(QStringLiteral("Movimento"), Tema::cor(Cor::TextoSecundario)));
-    auto *movimento = new QCheckBox(QStringLiteral("Reduzir movimento"));
+    auto *movimento = new Interruptor(QStringLiteral("Reduzir movimento"));
     movimento->setChecked(Tema::reduzirMovimento());
-    v->addWidget(movimento);
+    v->addWidget(movimento, 0, Qt::AlignLeft);
     v->addWidget(etiqueta(QStringLiteral("Sem o feixe a varrer a evidência nem animações: as marcas e os resultados aparecem de uma vez."),
                           Letra::Corpo, Cor::TextoSecundario));
     v->addSpacing(12);
@@ -410,7 +491,7 @@ void JanelaPrincipal::abrirDefinicoes()
         d.accept();
         QTimer::singleShot(0, this, [this] { pedirChave(false); });
     });
-    connect(movimento, &QCheckBox::toggled, this, [](bool r) { Tema::definirReduzirMovimento(r); });
+    connect(movimento, &QAbstractButton::toggled, this, [](bool r) { Tema::definirReduzirMovimento(r); });
     d.setMinimumWidth(380);
     d.exec();
 }
@@ -623,6 +704,7 @@ void JanelaPrincipal::definirOcupado(bool ocupado)
 void JanelaPrincipal::definirEstado(const QString &texto)
 {
     estado_->setText(limparTexto(texto));
+    estado_->setToolTip(estado_->text());
     estado_->setVisible(!texto.isEmpty());
 }
 
@@ -643,7 +725,8 @@ void JanelaPrincipal::faixa(const QString &texto, Faixa tipo, const QString &bot
     auto *linha = new QHBoxLayout(f);
     linha->setContentsMargins(16, 10, 12, 10);
     linha->setSpacing(14);
-    const QColor cor = tipo == Faixa::Erro ? Tema::cor(Cor::Erro) : tipo == Faixa::Aviso ? Tema::cor(Cor::Aviso) : Tema::cor(Cor::TextoSecundario);
+    // Âmbar quando algo precisa de ti (falta a chave, sem ligação, rede por aprovar); o vermelho é só da gravidade.
+    const QColor cor = tipo == Faixa::Info ? Tema::cor(Cor::TextoSecundario) : Tema::cor(Cor::Aviso);
     auto *regua = new Regua(cor);
     regua->setFixedWidth(2);
     linha->addWidget(regua);
@@ -690,7 +773,8 @@ void JanelaPrincipal::estadoVazio(const QString &texto)
     esvaziar(perguntas_);
     tituloPerguntas_->hide();
     porRevelar_.clear();
-    revelacao_.stop();
+    if (revelacao_)
+        revelacao_->stop();
 }
 
 void JanelaPrincipal::primeiroArranque()
@@ -794,27 +878,32 @@ void JanelaPrincipal::revelar()
     // Com Reduzir movimento, ou nos testes sem janela à vista, aparece tudo de uma vez.
     if (Tema::reduzirMovimento() || !isVisible() || porRevelar_.isEmpty())
         return;
-    const int passo = 90, cada = 220;
-    const int total = int(porRevelar_.size()) * passo + cada;
-    for (QWidget *w : porRevelar_)
-        w->setProperty("revelado", 0.0);
     const QString estadoFinal = indicador_->texto(); // o que fica quando a revelação acaba
     indicador_->definir(IndicadorClaude::Estado::AResponder, QStringLiteral("Claude a responder"));
-    revelacao_.stop();
-    disconnect(&revelacao_, nullptr, this, nullptr);
-    revelacao_.setStartValue(0.0);
-    revelacao_.setEndValue(qreal(total));
-    revelacao_.setDuration(total);
-    revelacao_.setEasingCurve(QEasingCurve::Linear); // é o relógio; cada achado tem a sua curva abaixo
-    connect(&revelacao_, &QVariantAnimation::valueChanged, this, [this, passo, cada](const QVariant &v) {
-        const qreal agora = v.toReal();
-        for (int i = 0; i < porRevelar_.size(); ++i) {
-            const qreal t = qBound(0.0, (agora - i * passo) / cada, 1.0);
-            porRevelar_[i]->setProperty("revelado", QEasingCurve(QEasingCurve::OutCubic).valueForProgress(t));
-            porRevelar_[i]->update();
-        }
-    });
-    connect(&revelacao_, &QVariantAnimation::finished, this, [this, estadoFinal] {
+    if (revelacao_)
+        revelacao_->stop();
+    delete revelacao_;
+    revelacao_ = new QParallelAnimationGroup(this);
+    for (int i = 0; i < porRevelar_.size(); ++i) {
+        QWidget *w = porRevelar_[i];
+        w->setProperty("revelado", 0.0);
+        auto *vez = new QSequentialAnimationGroup;
+        vez->addPause(i * 90);
+        auto *entrar = new QVariantAnimation;
+        entrar->setStartValue(0.0);
+        entrar->setEndValue(1.0);
+        entrar->setDuration(220);
+        entrar->setEasingCurve(Tema::resposta());
+        connect(entrar, &QVariantAnimation::valueChanged, w, [w](const QVariant &v) { w->setProperty("revelado", v); });
+        // Quando o achado acaba de entrar, a conclusão escreve-se.
+        connect(entrar, &QVariantAnimation::finished, w, [w] {
+            if (auto *c = w->findChild<QLabel *>(QStringLiteral("conclusao")))
+                static_cast<Conclusao *>(c)->escrever();
+        });
+        vez->addAnimation(entrar);
+        revelacao_->addAnimation(vez);
+    }
+    connect(revelacao_, &QAbstractAnimation::finished, this, [this, estadoFinal] {
         for (QWidget *w : porRevelar_)
             w->setProperty("revelado", 1.0);
         porRevelar_.clear();
@@ -822,7 +911,7 @@ void JanelaPrincipal::revelar()
         if (indicador_->estado() == IndicadorClaude::Estado::AResponder)
             indicador_->definir(IndicadorClaude::Estado::Inativo, estadoFinal);
     });
-    revelacao_.start();
+    revelacao_->start();
 }
 
 namespace {
@@ -876,6 +965,7 @@ public:
         setCursor(Qt::PointingHandCursor);
         setAttribute(Qt::WA_Hover);
         setToolTip(QStringLiteral("Mostrar na evidência"));
+        setAccessibleName(QStringLiteral("Citação: linhas %1 da evidência").arg(texto));
         realce_.setDuration(Tema::duracao(140));
         realce_.setEasingCurve(Tema::resposta());
         connect(&realce_, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
@@ -961,8 +1051,10 @@ QWidget *JanelaPrincipal::cartaoDoAchado(const QJsonObject &a, const QVector<int
             destino->setContentsMargins(12, 0, 0, 0);
             destino->setSpacing(2);
         }
-        for (const QString &l : linhas)
-            destino->addWidget(etiqueta(linhas.size() > 1 ? QStringLiteral("·  ") + l : l, Letra::Corpo, Cor::Texto));
+        for (const QString &l : linhas) {
+            const QString texto = linhas.size() > 1 ? QStringLiteral("·  ") + l : l;
+            destino->addWidget(voz ? new Conclusao(limparTexto(texto)) : etiqueta(texto, Letra::Corpo, Cor::Texto));
+        }
         if (alvo)
             v->addWidget(alvo);
     };
@@ -1017,7 +1109,7 @@ QWidget *JanelaPrincipal::cartaoDaPergunta(const QJsonObject &p)
     const int numero = p.value(QStringLiteral("n")).toInt();
     auto *linha = new QHBoxLayout;
     linha->setSpacing(8);
-    auto *caixa = new QLineEdit;
+    auto *caixa = new CaixaDeTexto;
     caixa->setPlaceholderText(QStringLiteral("A tua resposta"));
     caixa->setMaxLength(500);
     auto *guardar = new Botao(QStringLiteral("Guardar"));

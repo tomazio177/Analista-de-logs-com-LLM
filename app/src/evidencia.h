@@ -80,6 +80,9 @@ public:
     void definirTempoDaCascata(qreal ms) { cascata_ = ms; }
     qreal halo(int i) const { return haloLinhas_.contains(i) ? halo_ : 0; }
     void definirHalo(const QSet<int> &linhas, qreal intensidade);
+    // O rato por cima e a linha atual acendem e apagam devagar: duas linhas de cada (a nova e a que sai).
+    struct Transicao { int nova = -1; int antiga = -1; qreal t = 1; qreal de(int i) const { return (i == nova ? t : 0) + (i == antiga ? 1 - t : 0); } };
+    Transicao rato, atual;
 
     int rowCount(const QModelIndex &pai = {}) const override { return pai.isValid() ? 0 : int(linhas_.size()); }
     QVariant data(const QModelIndex &i, int papel) const override;
@@ -188,6 +191,8 @@ public:
 
 private:
     void atualizarCabecalho();
+    void mudar(ModeloEvidencia::Transicao &tr, QVariantAnimation &anim, int linha);
+    bool eventFilter(QObject *o, QEvent *e) override;
 
     ModeloEvidencia *modelo_;
     QListView *lista_;
@@ -199,4 +204,6 @@ private:
     QVariantAnimation cascata_;
     QVariantAnimation deslizar_;
     QVariantAnimation halo_;
+    QVariantAnimation ratoAnim_;
+    QVariantAnimation atualAnim_;
 };

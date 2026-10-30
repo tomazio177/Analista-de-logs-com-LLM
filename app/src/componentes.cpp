@@ -101,7 +101,7 @@ void Botao::paintEvent(QPaintEvent *)
     QColor fundo, letra, rebordo;
     switch (tipo_) {
     case Tipo::Primario:
-        fundo = misturar(Tema::cor(Cor::Texto), QColor(Qt::white), 0.6 * realce_);
+        fundo = misturar(Tema::cor(Cor::Texto), Tema::cor(Cor::Texto).lighter(108), realce_);
         if (carregado)
             fundo = fundo.darker(112);
         letra = Tema::cor(Cor::Substrato);
@@ -214,7 +214,7 @@ void IndicadorClaude::paintEvent(QPaintEvent *)
         letra = Tema::cor(Cor::Claude);
         break;
     case Estado::Indisponivel:
-        ponto = Tema::cor(Cor::Erro);
+        ponto = Tema::cor(Cor::Aviso); // algo precisa de ti; o vermelho é só da gravidade
         letra = Tema::cor(Cor::Texto);
         break;
     }
@@ -296,4 +296,146 @@ void LinhaDeProgresso::paintEvent(QPaintEvent *)
     g.setColorAt(0.5, cor);
     g.setColorAt(1, transparente);
     p.fillRect(QRectF(x, 0, segmento, height()), g);
+}
+
+// --- CaixaDeTexto ------------------------------------------------------------------------------------------------
+
+CaixaDeTexto::CaixaDeTexto(QWidget *pai) : QLineEdit(pai)
+{
+    // O rebordo é pintado aqui; o do QSS fica transparente para manter o mesmo espaço interior.
+    setStyleSheet(QStringLiteral("QLineEdit { border-color: transparent; }"));
+    anim_.setEasingCurve(Tema::resposta());
+    connect(&anim_, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
+        foco_ = v.toReal();
+        update();
+    });
+}
+
+void CaixaDeTexto::animarPara(qreal alvo)
+{
+    anim_.stop();
+    anim_.setDuration(Tema::duracao(140));
+    anim_.setStartValue(foco_);
+    anim_.setEndValue(alvo);
+    if (anim_.duration() == 0) {
+        foco_ = alvo;
+        update();
+    } else {
+        anim_.start();
+    }
+}
+
+void CaixaDeTexto::focusInEvent(QFocusEvent *e)
+{
+    animarPara(1);
+    QLineEdit::focusInEvent(e);
+}
+
+void CaixaDeTexto::focusOutEvent(QFocusEvent *e)
+{
+    animarPara(0);
+    QLineEdit::focusOutEvent(e);
+}
+
+void CaixaDeTexto::paintEvent(QPaintEvent *e)
+{
+    QLineEdit::paintEvent(e);
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    QPainterPath forma;
+    forma.addRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), Tema::Raio, Tema::Raio);
+    QColor cor = misturar(Tema::cor(Cor::HairlineForte), Tema::cor(Cor::TextoSecundario), foco_);
+    if (!isEnabled())
+        cor = Tema::cor(Cor::Hairline);
+    p.strokePath(forma, QPen(cor, 1));
+}
+
+// --- Interruptor ------------------------------------------------------------------------------------------
+
+Interruptor::Interruptor(const QString &texto, QWidget *pai) : QAbstractButton(pai)
+{
+    setText(texto);
+    setCheckable(true);
+    setCursor(Qt::PointingHandCursor);
+    setFont(Tema::fonte(Tema::Letra::Corpo));
+    setAttribute(Qt::WA_Hover);
+    for (QVariantAnimation *a : {&anim_, &realceAnim_})
+        a->setEasingCurve(Tema::resposta());
+    connect(&anim_, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
+        posicao_ = v.toReal();
+        update();
+    });
+    connect(&realceAnim_, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
+        realce_ = v.toReal();
+        update();
+    });
+}
+
+QSize Interruptor::sizeHint() const
+{
+    return {32 + 10 + fontMetrics().horizontalAdvance(text()) + 4, 24};
+}
+
+void Interruptor::checkStateSet()
+{
+    animar();
+}
+
+void Interruptor::nextCheckState()
+{
+    QAbstractButton::nextCheckState();
+    animar();
+}
+
+void Interruptor::animar()
+{
+    anim_.stop();
+    anim_.setDuration(Tema::duracao(160));
+    anim_.setStartValue(posicao_);
+    anim_.setEndValue(isChecked() ? 1.0 : 0.0);
+    if (anim_.duration() == 0 || !isVisible()) {
+        posicao_ = isChecked() ? 1 : 0;
+        update();
+    } else {
+        anim_.start();
+    }
+}
+
+void Interruptor::enterEvent(QEnterEvent *e)
+{
+    realceAnim_.stop();
+    realceAnim_.setDuration(Tema::duracao(140));
+    realceAnim_.setStartValue(realce_);
+    realceAnim_.setEndValue(1.0);
+    realceAnim_.start();
+    QAbstractButton::enterEvent(e);
+}
+
+void Interruptor::leaveEvent(QEvent *e)
+{
+    realceAnim_.stop();
+    realceAnim_.setDuration(Tema::duracao(140));
+    realceAnim_.setStartValue(realce_);
+    realceAnim_.setEndValue(0.0);
+    realceAnim_.start();
+    QAbstractButton::leaveEvent(e);
+}
+
+void Interruptor::paintEvent(QPaintEvent *)
+{
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    const QRectF trilho(0.5, (height() - 18) / 2.0 + 0.5, 32, 17);
+    QPainterPath forma;
+    forma.addRoundedRect(trilho, 8.5, 8.5);
+    const QColor desligado = misturar(Tema::cor(Cor::Substrato), Tema::cor(Cor::SuperficieElevada), realce_);
+    p.fillPath(forma, misturar(desligado, Tema::cor(Cor::Texto), posicao_));
+    p.strokePath(forma, QPen(hasFocus() ? Tema::cor(Cor::TextoSecundario) : Tema::cor(Cor::HairlineForte), 1));
+    const qreal x = trilho.left() + 3 + (trilho.width() - 17) * posicao_;
+    p.setPen(Qt::NoPen);
+    p.setBrush(misturar(Tema::cor(Cor::TextoSecundario), Tema::cor(Cor::Substrato), posicao_));
+    p.drawEllipse(QRectF(x, trilho.top() + 2.5, 12, 12));
+    p.setPen(Tema::cor(Cor::Texto));
+    p.setFont(font());
+    p.drawText(QRectF(42, 0, width() - 42, height()), Qt::AlignVCenter | Qt::AlignLeft, text());
 }

@@ -1,6 +1,8 @@
 #pragma once
 
+#include <QAbstractButton>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QVariantAnimation>
 
@@ -93,4 +95,47 @@ private:
     QString texto_;
     qreal pulso_ = 1;
     QVariantAnimation pulsoAnim_;
+};
+
+// Uma caixa de texto com o rebordo animado ao ganhar e perder o foco (o QSS mudaria de uma vez).
+class CaixaDeTexto : public QLineEdit
+{
+    Q_OBJECT
+
+public:
+    explicit CaixaDeTexto(QWidget *pai = nullptr);
+
+protected:
+    void paintEvent(QPaintEvent *) override;
+    void focusInEvent(QFocusEvent *) override;
+    void focusOutEvent(QFocusEvent *) override;
+
+private:
+    void animarPara(qreal alvo);
+    qreal foco_ = 0;
+    QVariantAnimation anim_;
+};
+
+// Um interruptor com o texto à direita: o botão desliza em vez de saltar.
+class Interruptor : public QAbstractButton
+{
+    Q_OBJECT
+
+public:
+    explicit Interruptor(const QString &texto, QWidget *pai = nullptr);
+    QSize sizeHint() const override;
+
+protected:
+    void paintEvent(QPaintEvent *) override;
+    void checkStateSet() override;
+    void nextCheckState() override;
+    void enterEvent(QEnterEvent *) override;
+    void leaveEvent(QEvent *) override;
+
+private:
+    void animar();
+    qreal posicao_ = 0; // 0 desligado, 1 ligado
+    qreal realce_ = 0;
+    QVariantAnimation anim_;
+    QVariantAnimation realceAnim_;
 };

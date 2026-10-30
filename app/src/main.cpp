@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     QCommandLineOption captura(QStringLiteral("captura"), QStringLiteral("Guarda uma imagem da janela neste ficheiro e fecha."), QStringLiteral("ficheiro"));
     // Com --cena, a janela não fala com o motor: mostra uma triagem de exemplo (--exemplo) num dos estados.
     // Assim as capturas nunca levam dados reais da rede de casa.
-    QCommandLineOption cena(QStringLiteral("cena"), QStringLiteral("triagem, lendo, citacao, vazio ou erro."), QStringLiteral("nome"));
+    QCommandLineOption cena(QStringLiteral("cena"), QStringLiteral("triagem, escrita, lendo, citacao, vazio ou erro."), QStringLiteral("nome"));
     QCommandLineOption exemplo(QStringLiteral("exemplo"), QStringLiteral("Ficheiro JSON com uma triagem de exemplo, com dados."), QStringLiteral("ficheiro"));
     linha.addOptions({captura, cena, exemplo});
     linha.process(app);
@@ -77,6 +77,8 @@ int main(int argc, char *argv[])
                              {"triagem", QJsonObject{{"ok", false}, {"erro", QJsonObject{{"codigo", "limite-de-pedidos"}, {"mensagem", "Limite de pedidos atingido."}}}}}});
     } else {
         janela.mostrarTriagem(triagem);
+        if (nome == QLatin1String("escrita"))
+            espera = 520; // a meio: os achados a entrar e a primeira conclusão a escrever-se
         if (nome == QLatin1String("citacao")) {
             // Carrega no primeiro chip de citação, como quem quer ver de onde vem a conclusão.
             QTimer::singleShot(1200, &janela, [&] {

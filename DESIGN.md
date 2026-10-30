@@ -9,7 +9,7 @@ colors:
   hairline-strong: "rgba(255,255,255,0.10)"
   text: "#E6EDF7"
   text-muted: "#7D8AA0"
-  text-faint: "#4A5568"
+  text-faint: "#6E7A8E"
   claude: "#3DE0FF"
   claude-dim: "rgba(61,224,255,0.14)"
   severity-error: "#FF4D4D"
@@ -21,6 +21,11 @@ typography:
     fontWeight: 700
     lineHeight: 1
     letterSpacing: "-0.02em"
+  headline:
+    fontFamily: "Geist"
+    fontSize: "26px"
+    fontWeight: 700
+    lineHeight: 1.2
   heading:
     fontFamily: "Geist"
     fontSize: "15px"
@@ -84,7 +89,7 @@ components:
 # Analista de logs — sistema visual
 
 > Fonte única dos tokens no código: `app/src/tema.h` / `tema.cpp`. Nenhum hex fora desses dois ficheiros.
-> Escrito antes da implementação por pedido explícito do dono do projeto; será revisto no fim, a partir do que for construído.
+> Escrito antes da implementação por pedido do dono do projeto e revisto depois, a partir do que ficou construído.
 
 ## Overview
 
@@ -126,19 +131,19 @@ Estratégia **Restrained**: um escuro dominante em três camadas de luminosidade
 - **Superfície `#0C1220`**: barra superior, painel de análise.
 - **Superfície elevada `#111A2C`**: botões, campos, linha selecionada, faixas.
 - **Hairline `rgba(255,255,255,0.06)`**: toda a separação entre compartimentos. `hairline-strong` (0.10) só para o foco do teclado e o rebordo dos campos.
-- **Texto `#E6EDF7`** (contraste 17:1 no substrato). **Texto secundário `#7D8AA0`** (5,4:1 na superfície, 5,0:1 na superfície elevada: passa AA). **Texto ténue `#4A5568`** só para números de linha e elementos não essenciais (não é texto a ler).
+- **Texto `#E6EDF7`** (contraste 17:1 no substrato). **Texto secundário `#7D8AA0`** (5,4:1 na superfície, 5,0:1 na superfície elevada: passa AA). **Texto ténue `#6E7A8E`** para números de linha e metadados de segundo plano. Começou em `#4A5568` (2,6:1) e subiu para 4,5:1 na auditoria: os números de linha também são texto.
 
 ### Primary — a voz do Claude
 - **Cyan `#3DE0FF`**: exclusivo do Claude. Aparece no feixe, nas marcas de citação na margem e na minimapa, nos chips de citação, no indicador de estado quando o Claude está ativo, no cursor da revelação e no rótulo «CLAUDE». `claude-dim` (14%) é o fundo dos chips e o halo das linhas citadas.
 
 ### Severidade
-- **Erro `#FF4D4D`**: só gravidade `alta` e nível `urgente`, e erros que impedem a triagem.
-- **Aviso `#FFB020`**: gravidade `media`, nível `atenção`, avisos.
+- **Erro `#FF4D4D`**: só gravidade `alta` e nível `urgente`. Mais nada.
+- **Aviso `#FFB020`**: gravidade `media`, nível `atenção`, e tudo o que precisa de ti: falta a chave, sem ligação, limite de pedidos, rede por aprovar.
 - **Info / baixa / tranquilo**: texto secundário. Não há verde: "tranquilo" é a ausência de alarme, dita em texto grande e calmo.
 
 ### Named Rules
 - **A regra do feixe.** Se o cyan aparece, o Claude disse ou citou aquilo. Botões, foco, seleção e links da app nunca são cyan.
-- **A regra da gravidade.** O vermelho e o âmbar só existem quando há gravidade real; um ecrã tranquilo não tem nenhum.
+- **A regra da gravidade.** O vermelho só existe para gravidade alta. Um erro da API não é gravidade: é âmbar. Um ecrã tranquilo e sem problemas não tem nenhum dos dois.
 
 ## Typography
 
@@ -150,6 +155,7 @@ Duas famílias, embebidas em `app/fontes/` (licença OFL, com `OFL.txt` copiado 
 
 ### Hierarchy
 - **Numeral** (Geist 700, 56 px, tracking −2%): o número de achados que pedem atenção. Com «tranquilo», o numeral é `0` em texto secundário.
+- **Destaque** (Geist 700, 26 px): a frase que ocupa o lugar do numeral quando não há número («Ainda não verificaste esta rede.», «O Claude está a ler 45 linhas.»).
 - **Nível** (Mono 10 px, maiúsculas, tracking 0,12em, na cor da gravidade): `URGENTE`, `ATENÇÃO`, `TRANQUILO`.
 - **Heading** (Geist 700, 15 px): título de cada achado.
 - **Body** (Geist 400, 13 px, 1,5): resumo, conclusões, ações. Medida máxima ~72 caracteres.
@@ -186,6 +192,7 @@ Pintados à mão (`QAbstractButton` com `paintEvent`), porque o QSS não anima.
 - Estados animados com `QVariantAnimation` 140 ms `OutCubic`: hover clareia o fundo 6%, pressão escurece 4%, desativado desce a opacidade para 40%. Foco do teclado: anel de 1 px `hairline-strong` + 1 px de folga.
 
 ### Coluna de evidência (componente-assinatura)
+- O rato por cima e a linha atual acendem e apagam em 120 ms (duas linhas de cada vez: a que entra e a que sai).
 - `QListView` + modelo próprio (`QAbstractListModel`) + `QStyledItemDelegate` que pinta à mão; `setUniformItemSizes(true)`, sem widgets por linha.
 - Cada linha: `001` (Mono, texto ténue) · marca de 2 px no gutter · etiqueta de tipo (`D` aparelho, `A` alerta, `L` login, `N` nota do dono, `R` rede) · campos em colunas fixas por tipo. IPs e horas em `text`, o resto em `text-muted`.
 - Marcas no gutter: erro/aviso (régua de gravidade) quando a linha é um alerta com gravidade; cyan quando o Claude cita a linha. Uma linha citada e grave mostra as duas (gravidade à esquerda, cyan à direita).
@@ -225,20 +232,23 @@ Sempre visível. Ponto de 6 px + rótulo em Meta.
 | A preparar (rede e logins) | texto secundário, pulso lento | `A VARRER A REDE · 120/254` |
 | A ler | cyan, pulso | `CLAUDE A LER · 214 LINHAS` |
 | A revelar | cyan fixo | `CLAUDE A RESPONDER` |
-| Erro da API / limite | erro | `CLAUDE INDISPONÍVEL` — e uma faixa com a frase clara e o que fazer |
+| Erro da API / limite | aviso (âmbar) | `CLAUDE · LIMITE ATINGIDO`, `CLAUDE · SEM LIGAÇÃO`… e uma faixa com a frase clara e o que fazer |
 
 ### Revelação das conclusões
-Quando o JSON chega, os achados entram um a um (180 ms de fade + 8 px de subida, `OutCubic`, 90 ms entre eles); a conclusão do achado ativo escreve-se com um cursor cyan de 2 px que pisca (530 ms) e desaparece no fim. Qualquer clique ou tecla salta para o fim. É apresentação do texto que já chegou inteiro, não streaming; com Reduzir movimento, aparece tudo de uma vez.
+Quando o JSON chega, o feixe faz a última passagem e apaga-se, as marcas cyan acendem em cascata e os achados entram um a um (220 ms de fade + 8 px de subida, `OutCubic`, 90 ms entre eles), com o indicador em `CLAUDE A RESPONDER`. Quando um achado acaba de entrar, a conclusão escreve-se (12 ms por carácter, entre 320 ms e 1,1 s, `OutCubic`) com um cursor cyan de 2 px no fim, que pisca três vezes e sai. A altura final fica reservada antes, para nada saltar. É apresentação do texto que já chegou inteiro, não streaming; com Reduzir movimento, aparece tudo de uma vez.
 
 ### Faixas (erros e avisos)
-Inline, por baixo da barra, nunca diálogos para erros. Superfície elevada, régua de 2 px à esquerda na cor da gravidade (erro/aviso) ou texto secundário (info), texto em Body, ação opcional como botão secundário. Entram com altura animada 160 ms `OutCubic`. Sem stack traces: a mensagem vem do mapa de `codigo` → frase + ação.
+Inline, por baixo da barra, nunca diálogos para erros. Superfície elevada, régua de 2 px à esquerda: âmbar quando precisa de ti, texto secundário quando é só informação, texto em Body, ação opcional como botão secundário. Entram com altura animada 160 ms `OutCubic`. Sem stack traces: a mensagem vem do mapa de `codigo` → frase + ação.
 
 ### Estados vazios
 - **Primeiro arranque (sem triagem)**: a coluna de evidência mostra um exemplo esbatido (40%) de 8 linhas com o rótulo `EXEMPLO` em Meta; o painel de análise mostra o numeral `—`, uma frase («Ainda não verificaste esta rede.») e três passos numerados em Mono: varre a rede · lê os logins falhados · o Claude explica e mostra onde. O botão primário está à vista e é o único caminho.
 - O briefing pedia "arrastar um ficheiro de log": não se aplica, porque a app não lê ficheiros (lê a rede e o Windows). Decidido com o dono.
 
+### Campos e interruptores
+`CaixaDeTexto` (rebordo hairline-strong que passa a texto secundário com o foco, em 140 ms) e `Interruptor` (um botão que desliza em 160 ms). O QSS mudaria estes estados de uma vez.
+
 ### Definições
-Diálogo pequeno (botão ⚙): «Reduzir movimento» (por defeito segue a opção de animações do Windows) e «Chave da API…». Guardado com `QSettings`.
+Diálogo pequeno (botão de três traços): «Reduzir movimento» (por defeito segue a opção de animações do Windows) e «Chave da API…». Guardado com `QSettings`. A barra de título do Windows segue o esquema escuro (`QStyleHints::setColorScheme`).
 
 ## Movimento
 
