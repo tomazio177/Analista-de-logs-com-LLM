@@ -1,10 +1,12 @@
-# Corre os testes a cada push para o main e a cada pull request.
+# Corre os testes a cada push para o main, a cada pull request, ou à mão.
 name: Testes
 
 on:
   push:
     branches: [main]
   pull_request:
+  # Botão "Run workflow" na página Actions, para correr os testes à mão.
+  workflow_dispatch:
 
 jobs:
   motor:
