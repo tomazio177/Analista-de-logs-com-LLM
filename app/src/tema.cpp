@@ -133,7 +133,10 @@ void aplicar(QApplication &app)
     carregarFontes();
     app.setFont(fonte(Letra::Corpo));
     // A barra de título do Windows e os diálogos do sistema também escuros, mesmo com o Windows em modo claro.
+    // Só existe a partir do Qt 6.8; com um Qt mais antigo a barra segue o Windows.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
     app.styleHints()->setColorScheme(Qt::ColorScheme::Dark);
+#endif
 
     QPalette p;
     p.setColor(QPalette::Window, cor(Cor::Substrato));
