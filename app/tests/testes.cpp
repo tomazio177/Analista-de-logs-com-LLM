@@ -1,10 +1,14 @@
 #include "administrador.h"
 #include "chave.h"
+#include "evidencia.h"
 #include "janela.h"
 #include "motor.h"
 #include "texto.h"
 
 #include <QDir>
+#include <QElapsedTimer>
+#include <QListView>
+#include <QScrollBar>
 #include <QFrame>
 #include <QFile>
 #include <QJsonArray>
@@ -354,6 +358,86 @@ private slots:
         for (QFrame *f : janela.findChildren<QFrame *>())
             if (f->objectName() == "faixa")
                 QFAIL("não devia haver faixas");
+    }
+
+
+    // --- A evidência e as citações -----------------------------------------------------------------------
+    void evidencia_citacoesVemDosIdsIPsEHoras()
+    {
+        const QJsonObject dados{
+            {"rede", "192.0.2.0/24"},
+            {"aparelhos", QJsonArray{QJsonObject{{"id", "d1"}, {"ip", "192.0.2.1"}, {"nome", "router"}, {"portas_abertas", QJsonArray{"80 http"}}},
+                                     QJsonObject{{"id", "d2"}, {"ip", "192.0.2.34"}, {"nome", "<b>portátil</b>"}, {"portas_abertas", QJsonArray{"23 telnet"}}}}},
+            {"logins_falhados", QJsonObject{
+                 {"alertas_das_regras", QJsonArray{QJsonObject{{"id", "a1"}, {"tipo", "rajada"}, {"origem", "este PC"}, {"n", 28}, {"de", "2026-10-29 14:45:03"}, {"ate", "2026-10-29 14:45:20"}, {"gravidade_minima", "alta"}}}},
+                 {"agrupados", QJsonArray{QJsonObject{{"ip_origem", "127.0.0.1"}, {"processo", "msedge.exe"}, {"tentativas", 28}, {"primeira", "2026-10-29 14:45:03"}, {"ultima", "2026-10-29 14:45:20"}},
+                                          QJsonObject{{"ip_origem", "127.0.0.1"}, {"processo", "svchost.exe"}, {"tentativas", 1}, {"primeira", "2026-10-24 09:00:00"}, {"ultima", "2026-10-24 09:00:00"}}}}}}};
+        const QVector<LinhaDeEvidencia> l = linhasDosDados(dados);
+        // R, D1, D2, R (logins), A1, e os logins por ordem: L 09:00 (dia 24), L 14:45 (dia 29)
+        QCOMPARE(l.size(), 7);
+        QCOMPARE(l[2].campos[1].texto, QString("<b>portátil</b>")); // texto da rede fica texto
+        QCOMPARE(l[4].gravidade, 2);
+
+        const auto achado = [](QJsonArray alertas, QJsonArray nosDados) { return QJsonObject{{"alertas_relacionados", alertas}, {"nos_dados", nosDados}}; };
+        // O alerta pelo id; a hora dentro do intervalo de um grupo de logins também é dele.
+        QCOMPARE(citacoesDoAchado(achado({"a1"}, {"pico às 14:45:10"}), l), (QVector<int>{4, 6}));
+        // Um IP aponta para o aparelho; "d1" escrito na frase também conta.
+        QCOMPARE(citacoesDoAchado(achado({}, {"192.0.2.34 e o d1"}), l), (QVector<int>{1, 2}));
+        // A porta sozinha só conta quando a frase não tem ids, IPs nem horas.
+        QCOMPARE(citacoesDoAchado(achado({}, {"a porta 23 telnet aberta"}), l), (QVector<int>{2}));
+        QCOMPARE(citacoesDoAchado(achado({}, {"nada que se encontre"}), l), QVector<int>{});
+
+        QCOMPARE(intervalos({20, 14, 16, 15, 15}), (QVector<QPair<int, int>>{{14, 16}, {20, 20}}));
+        QCOMPARE(nomeDoIntervalo({13, 13}, 45), QString("L014"));
+        QCOMPARE(nomeDoIntervalo({14, 17}, 1200), QString("L0015–L0018"));
+    }
+    void evidencia_aguenta100milLinhasSemEngasgar()
+    {
+        QJsonArray aparelhos;
+        for (int i = 0; i < 100000; ++i)
+            aparelhos.append(QJsonObject{{"id", QString("d%1").arg(i + 1)}, {"ip", QString("10.%1.%2.%3").arg(i / 65536).arg(i / 256 % 256).arg(i % 256)},
+                                         {"nome", QString("aparelho-%1").arg(i)}, {"portas_abertas", QJsonArray{"80 http"}}});
+        PainelEvidencia painel;
+        painel.resize(640, 800);
+        painel.show();
+        QElapsedTimer relogio;
+        relogio.start();
+        painel.definirDados(QJsonObject{{"aparelhos", aparelhos}}, QString());
+        QVector<int> citadas;
+        for (int i = 0; i < 100000; i += 997)
+            citadas << i;
+        painel.marcar(citadas, {});
+        QVERIFY2(relogio.elapsed() < 3000, qPrintable(QString("carregar levou %1 ms").arg(relogio.elapsed())));
+        QCOMPARE(painel.total(), 100000);
+
+        // Percorre a lista toda aos saltos e pinta cada vista: tem de caber folgado num frame de 60 fps.
+        QScrollBar *barra = painel.lista()->verticalScrollBar();
+        const int passos = 200;
+        relogio.restart();
+        for (int i = 0; i <= passos; ++i) {
+            barra->setValue(barra->maximum() * i / passos);
+            painel.lista()->viewport()->repaint();
+        }
+        const double porVista = double(relogio.elapsed()) / (passos + 1);
+        QVERIFY2(porVista < 16.0, qPrintable(QString("cada vista levou %1 ms").arg(porVista)));
+    }
+    void janela_cadaAchadoMostraAsLinhasQueCita()
+    {
+        QJsonObject t = triagemDeExemplo();
+        t["dados"] = QJsonObject{{"aparelhos", QJsonArray{QJsonObject{{"id", "d1"}, {"ip", "192.168.1.20"}, {"nome", "tv"}}}}};
+        QJsonArray achados = t.value("achados").toArray();
+        QJsonObject primeiro = achados.first().toObject();
+        primeiro["nos_dados"] = QJsonArray{"a tv em 192.168.1.20"};
+        achados[0] = primeiro;
+        t["achados"] = achados;
+        Motor motor;
+        JanelaPrincipal janela(&motor);
+        janela.mostrarTriagem(t);
+        // O achado que cita a linha tem o chip; o outro diz que não encontrou nenhuma.
+        QVERIFY(botao(&janela, "L001"));
+        QVERIFY(contem(&janela, "SEM LINHA ENCONTRADA NA EVIDÊNCIA"));
+        botao(&janela, "L001")->click();
+        QCOMPARE(janela.evidencia()->lista()->currentIndex().row(), 0);
     }
 
     // --- Pedir administrador (as aspas da linha de comandos do Windows) ----------------------------------
