@@ -1,0 +1,593 @@
+{
+  "ok": true,
+  "contrato": 1,
+  "triagem_id": 42,
+  "data": "2026-10-30T21:14:05.000Z",
+  "modelo": "claude-opus-5-5",
+  "uso": {
+    "entrada": null,
+    "saida": null
+  },
+  "nivel_geral": "urgente",
+  "resumo": "Um portátil que apareceu ontem à noite tentou entrar neste PC pela rede com três nomes de utilizador diferentes, em dois minutos. A câmara da entrada tem o telnet aberto. O resto parece normal.",
+  "dados": {
+    "agora": "2026-10-30 21:13:40",
+    "fuso_horario": "Europe/Lisbon",
+    "rede": "192.0.2.0/24",
+    "vigilancia": {
+      "varrimentos_feitos": 14,
+      "desde": "2026-10-01 19:02:11"
+    },
+    "ultimo_varrimento": "2026-10-30 21:13:02",
+    "aparelhos": [
+      {
+        "id": "d1",
+        "ip": "192.0.2.1",
+        "este_pc": false,
+        "nome": "router.lan",
+        "fabricante_mac": "00:00:5e",
+        "mac_privado": false,
+        "portas_abertas": [
+          "53 dns",
+          "80 http",
+          "443 https"
+        ],
+        "visto_pela_primeira_vez": "2026-10-01 19:02:11"
+      },
+      {
+        "id": "d2",
+        "ip": "192.0.2.10",
+        "este_pc": false,
+        "nome": "nas-arquivo.lan",
+        "fabricante_mac": "00:00:5e",
+        "mac_privado": false,
+        "portas_abertas": [
+          "445 smb",
+          "5000 synology"
+        ],
+        "visto_pela_primeira_vez": "2026-10-01 19:02:11"
+      },
+      {
+        "id": "d3",
+        "ip": "192.0.2.14",
+        "este_pc": false,
+        "nome": "impressora.lan",
+        "fabricante_mac": "00:00:5e",
+        "mac_privado": false,
+        "portas_abertas": [
+          "631 ipp",
+          "9100 jetdirect"
+        ],
+        "visto_pela_primeira_vez": "2026-10-01 19:02:11"
+      },
+      {
+        "id": "d4",
+        "ip": "192.0.2.20",
+        "este_pc": false,
+        "nome": "tv-sala.lan",
+        "fabricante_mac": "00:00:5e",
+        "mac_privado": false,
+        "portas_abertas": [
+          "8008 chromecast",
+          "8009 chromecast"
+        ],
+        "visto_pela_primeira_vez": "2026-10-01 19:02:11"
+      },
+      {
+        "id": "d5",
+        "ip": "192.0.2.23",
+        "este_pc": false,
+        "nome": "camara-entrada.lan",
+        "fabricante_mac": "00:00:5e",
+        "mac_privado": false,
+        "portas_abertas": [
+          "554 rtsp",
+          "23 telnet"
+        ],
+        "visto_pela_primeira_vez": "2026-10-01 19:02:11"
+      },
+      {
+        "id": "d6",
+        "ip": "192.0.2.31",
+        "este_pc": false,
+        "nome": "iPhone-de-Ana.lan",
+        "fabricante_mac": null,
+        "mac_privado": true,
+        "portas_abertas": [],
+        "visto_pela_primeira_vez": "2026-10-01 19:02:11",
+        "notas_do_dono": [
+          {
+            "quando": "2026-10-20 21:04:10",
+            "texto": "é o telemóvel da Ana"
+          }
+        ]
+      },
+      {
+        "id": "d7",
+        "ip": "192.0.2.34",
+        "este_pc": false,
+        "nome": "LAPTOP-AB12CD34.lan",
+        "fabricante_mac": null,
+        "mac_privado": true,
+        "portas_abertas": [
+          "445 smb",
+          "3389 rdp"
+        ],
+        "visto_pela_primeira_vez": "2026-10-29 22:41:05"
+      },
+      {
+        "id": "d8",
+        "ip": "192.0.2.40",
+        "este_pc": false,
+        "nome": "repetidor.lan",
+        "fabricante_mac": "00:00:5e",
+        "mac_privado": false,
+        "portas_abertas": [
+          "22 ssh",
+          "80 http"
+        ],
+        "visto_pela_primeira_vez": "2026-10-01 19:02:11"
+      },
+      {
+        "id": "d9",
+        "ip": "192.0.2.52",
+        "este_pc": false,
+        "nome": null,
+        "fabricante_mac": "00:00:5e",
+        "mac_privado": false,
+        "portas_abertas": [
+          "1883 mqtt"
+        ],
+        "visto_pela_primeira_vez": "2026-10-01 19:02:11"
+      },
+      {
+        "id": "d10",
+        "ip": "192.0.2.61",
+        "este_pc": false,
+        "nome": "consola.lan",
+        "fabricante_mac": "00:00:5e",
+        "mac_privado": false,
+        "portas_abertas": [],
+        "visto_pela_primeira_vez": "2026-10-01 19:02:11"
+      },
+      {
+        "id": "d11",
+        "ip": "192.0.2.77",
+        "este_pc": true,
+        "nome": "PC-Sala.lan",
+        "fabricante_mac": "00:00:5e",
+        "mac_privado": false,
+        "portas_abertas": [
+          "445 smb"
+        ],
+        "visto_pela_primeira_vez": "2026-10-01 19:02:11"
+      }
+    ],
+    "aparelhos_desaparecidos": [
+      {
+        "ultimo_ip": "192.0.2.88",
+        "varrimentos_sem_resposta": 4
+      }
+    ],
+    "logins_falhados": {
+      "periodo_dias": 7,
+      "ultima_leitura": "2026-10-30 21:13:20",
+      "periodos_possivelmente_incompletos": [],
+      "total": 64,
+      "agrupados": [
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "interativo",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "svchost.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-24 00:10:00",
+          "ultima": "2026-10-24 00:10:00"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "interativo",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "svchost.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-25 01:11:01",
+          "ultima": "2026-10-25 01:11:01"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "interativo",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "svchost.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-26 02:12:02",
+          "ultima": "2026-10-26 02:12:02"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "interativo",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "svchost.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-27 03:13:03",
+          "ultima": "2026-10-27 03:13:03"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "interativo",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "svchost.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-28 04:14:04",
+          "ultima": "2026-10-28 04:14:04"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "interativo",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "svchost.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-24 05:15:05",
+          "ultima": "2026-10-24 05:15:05"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "interativo",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "svchost.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-25 06:16:06",
+          "ultima": "2026-10-25 06:16:06"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "interativo",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "svchost.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-26 07:17:07",
+          "ultima": "2026-10-26 07:17:07"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "interativo",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "svchost.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-27 08:18:08",
+          "ultima": "2026-10-27 08:18:08"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "interativo",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "msedge.exe",
+          "tentativas": 28,
+          "primeira": "2026-10-29 14:45:03",
+          "ultima": "2026-10-29 14:45:20"
+        },
+        {
+          "utilizador": "admin",
+          "tipo": "rede",
+          "motivo": "utilizador inexistente",
+          "ip_origem": "192.0.2.34",
+          "processo": "",
+          "tentativas": 3,
+          "primeira": "2026-10-29 22:43:10",
+          "ultima": "2026-10-29 22:44:02"
+        },
+        {
+          "utilizador": "administrador",
+          "tipo": "rede",
+          "motivo": "utilizador inexistente",
+          "ip_origem": "192.0.2.34",
+          "processo": "",
+          "tentativas": 4,
+          "primeira": "2026-10-29 22:44:15",
+          "ultima": "2026-10-29 22:44:51"
+        },
+        {
+          "utilizador": "ana",
+          "tipo": "rede",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "192.0.2.34",
+          "processo": "",
+          "tentativas": 6,
+          "primeira": "2026-10-29 22:45:02",
+          "ultima": "2026-10-29 22:45:40"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-23 10:00:20",
+          "ultima": "2026-10-23 10:00:20"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-24 11:01:21",
+          "ultima": "2026-10-24 11:01:21"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-25 12:02:22",
+          "ultima": "2026-10-25 12:02:22"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-26 13:03:23",
+          "ultima": "2026-10-26 13:03:23"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-27 14:04:24",
+          "ultima": "2026-10-27 14:04:24"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-28 15:05:25",
+          "ultima": "2026-10-28 15:05:25"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-29 16:00:26",
+          "ultima": "2026-10-29 16:00:26"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-23 17:01:27",
+          "ultima": "2026-10-23 17:01:27"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-24 18:02:28",
+          "ultima": "2026-10-24 18:02:28"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-25 19:03:29",
+          "ultima": "2026-10-25 19:03:29"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-26 10:04:20",
+          "ultima": "2026-10-26 10:04:20"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-27 11:05:21",
+          "ultima": "2026-10-27 11:05:21"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-28 12:00:22",
+          "ultima": "2026-10-28 12:00:22"
+        },
+        {
+          "utilizador": "(não enviado: login neste PC)",
+          "tipo": "desbloqueio",
+          "motivo": "palavra-passe errada",
+          "ip_origem": "127.0.0.1",
+          "processo": "LogonUI.exe",
+          "tentativas": 1,
+          "primeira": "2026-10-29 13:01:23",
+          "ultima": "2026-10-29 13:01:23"
+        }
+      ],
+      "alertas_das_regras": [
+        {
+          "id": "a1",
+          "tipo": "rajada",
+          "origem": "este PC",
+          "remoto": false,
+          "n": 28,
+          "de": "2026-10-29 14:45:03",
+          "ate": "2026-10-29 14:45:20",
+          "segundosEntreTentativas": 0.6,
+          "ritmoDeMaquina": true,
+          "processos": [
+            "msedge.exe"
+          ],
+          "utilizadores_distintos": 1,
+          "gravidade_minima": null
+        },
+        {
+          "id": "a2",
+          "tipo": "pela-rede",
+          "origem": "192.0.2.34",
+          "remoto": true,
+          "n": 13,
+          "de": "2026-10-29 22:43:10",
+          "ate": "2026-10-29 22:45:40",
+          "utilizadores": [
+            "admin",
+            "administrador",
+            "ana"
+          ],
+          "gravidade_minima": "media"
+        },
+        {
+          "id": "a3",
+          "tipo": "utilizador-inexistente",
+          "origem": "192.0.2.34",
+          "remoto": true,
+          "n": 7,
+          "de": "2026-10-29 22:43:10",
+          "ate": "2026-10-29 22:44:51",
+          "utilizadores": [
+            "admin",
+            "administrador"
+          ],
+          "gravidade_minima": "media"
+        }
+      ]
+    }
+  },
+  "achados": [
+    {
+      "titulo": "Tentativas de entrar neste PC a partir do LAPTOP-AB12CD34",
+      "gravidade": "alta",
+      "alertas_relacionados": [
+        "a2",
+        "a3"
+      ],
+      "nos_dados": [
+        "13 tentativas falhadas vindas de 192.0.2.34 entre 22:43:10 e 22:45:40",
+        "utilizadores tentados: admin, administrador, ana",
+        "o aparelho d7 foi visto pela primeira vez a 2026-10-29 22:41:05, dois minutos antes"
+      ],
+      "conhecimento_geral": [
+        "Tentar \"admin\" e \"administrador\" é típico de quem não sabe que contas existem."
+      ],
+      "conclusao": "Alguém num portátil ligado à tua rede tentou adivinhar uma conta deste PC. Não é um programa a repetir uma palavra-passe: os nomes mudam.",
+      "acao_sugerida": "Confirma de quem é o portátil. Se não o reconheces, muda a palavra-passe do Wi-Fi e desliga a partilha de ficheiros deste PC.",
+      "confianca": "alta",
+      "factos_sem_apoio": []
+    },
+    {
+      "titulo": "A câmara da entrada aceita ligações por telnet",
+      "gravidade": "media",
+      "alertas_relacionados": [],
+      "nos_dados": [
+        "192.0.2.23 (camara-entrada.lan) com a porta 23 telnet aberta"
+      ],
+      "conhecimento_geral": [
+        "O telnet envia a palavra-passe sem cifra e é a porta preferida dos programas que tomam conta de câmaras."
+      ],
+      "conclusao": "A câmara está mais exposta do que precisa. Por agora só a tua rede a vê.",
+      "acao_sugerida": "Desliga o telnet nas definições da câmara ou atualiza o firmware.",
+      "confianca": "alta",
+      "factos_sem_apoio": []
+    },
+    {
+      "titulo": "Rajada de logins falhados do Edge",
+      "gravidade": "baixa",
+      "alertas_relacionados": [
+        "a1"
+      ],
+      "nos_dados": [
+        "28 tentativas do msedge.exe entre 14:45:03 e 14:45:20, a menos de um segundo umas das outras"
+      ],
+      "conhecimento_geral": [
+        "O Edge repete sozinho uma credencial guardada quando uma pasta partilhada pede autenticação."
+      ],
+      "conclusao": "Parece um programa a repetir uma palavra-passe antiga, não uma pessoa.",
+      "acao_sugerida": "Revê as palavras-passe guardadas no Edge.",
+      "confianca": "media",
+      "factos_sem_apoio": []
+    },
+    {
+      "titulo": "Um aparelho com MQTT e sem nome",
+      "gravidade": "info",
+      "alertas_relacionados": [],
+      "nos_dados": [
+        "d9: 192.0.2.52, sem nome, porta 1883 mqtt"
+      ],
+      "conhecimento_geral": [
+        "O MQTT é usado por tomadas e sensores inteligentes."
+      ],
+      "conclusao": "Provavelmente um aparelho de casa inteligente.",
+      "acao_sugerida": "Se souberes o que é, diz-me.",
+      "confianca": "baixa",
+      "factos_sem_apoio": []
+    }
+  ],
+  "avisos": [],
+  "perguntas": [
+    {
+      "n": 1,
+      "pergunta": "De quem é o LAPTOP-AB12CD34, que apareceu na rede a 29/10 às 22:41?",
+      "sobre": {
+        "tipo": "aparelho",
+        "alvo": "x"
+      },
+      "respondida": false,
+      "resposta": null
+    },
+    {
+      "n": 2,
+      "pergunta": "O aparelho em 192.0.2.52 é teu?",
+      "sobre": {
+        "tipo": "aparelho",
+        "alvo": "y"
+      },
+      "respondida": true,
+      "resposta": {
+        "texto": "É a tomada da cozinha.",
+        "data": "2026-10-30T21:20:00.000Z"
+      }
+    }
+  ]
+}

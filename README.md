@@ -67,7 +67,7 @@ npm run empacotar    # faz a pasta da app com tudo incluído e, com o Inno Setup
 
 Uma janela em C++ com Qt 6 (`app/`) por cima do motor. Não calcula nada: pede ao motor, pelo contrato JSON, e mostra o que ele devolve.
 
-<img src="docs/app-exemplo.png" width="520" alt="A janela da app com o nível geral, dois achados e duas perguntas, uma já respondida. Dados de exemplo.">
+<img src="docs/app-exemplo.png" width="720" alt="A janela da app: à esquerda a evidência enviada ao Claude, com marcas cyan nas linhas citadas; à direita o nível geral, o número de achados graves e cada achado com as linhas que cita. Dados de exemplo.">
 
 *Dados de exemplo (uma casa inventada).*
 

@@ -21,6 +21,12 @@ add_library(analista_nucleo STATIC
     src/chave.h
     src/administrador.cpp
     src/administrador.h
+    src/tema.cpp
+    src/tema.h
+    src/componentes.cpp
+    src/componentes.h
+    src/evidencia.cpp
+    src/evidencia.h
 )
 target_include_directories(analista_nucleo PUBLIC src)
 target_link_libraries(analista_nucleo PUBLIC Qt6::Widgets)
@@ -39,6 +45,9 @@ target_link_libraries(analista PRIVATE analista_nucleo)
 # O ícone da janela e da barra de tarefas. O do ficheiro .exe ficaria a cargo do windres do MinGW, que falha com espaços
 # no caminho; os atalhos do instalador apontam para o .ico.
 qt_add_resources(analista "icones" PREFIX "/" FILES icone/analista.png)
+# As duas famílias de letra vão dentro da biblioteca (licença OFL, copiada para licencas/ pelo empacotar):
+# a app e os testes desenham com elas, nunca com as do sistema.
+qt_add_resources(analista_nucleo "fontes" PREFIX "/" FILES fontes/Geist-Regular.ttf fontes/Geist-Bold.ttf fontes/JetBrainsMono-Regular.ttf)
 
 enable_testing()
 qt_add_executable(testes_app tests/testes.cpp)

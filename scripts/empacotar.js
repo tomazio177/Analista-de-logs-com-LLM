@@ -55,6 +55,8 @@ cpSync(licencaDoNode, path.join(destino, 'node', 'LICENSE'));
 cpSync(path.join(projeto, 'LICENSE'), path.join(destino, 'LICENSE.txt'));
 mkdirSync(path.join(destino, 'licencas'));
 for (const f of ['AVISOS.txt', 'LGPL-3.txt', 'GPL-3.txt']) cpSync(path.join(projeto, 'instalador', 'licencas', f), path.join(destino, 'licencas', f));
+// As fontes vão dentro do analista.exe; a licença delas (OFL) vai ao lado.
+for (const f of ['OFL-Geist.txt', 'OFL-JetBrainsMono.txt']) cpSync(path.join(projeto, 'app', 'fontes', f), path.join(destino, 'licencas', f));
 
 // O motor, só com o que corre: nada de testes, dados, chaves ou ficheiros de desenvolvimento.
 const motor = path.join(destino, 'motor');

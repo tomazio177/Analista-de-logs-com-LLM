@@ -25,7 +25,7 @@ const comServico = (portas) => portas.map((p) => ({ porta: p, servico: PORTAS[p]
 
 // --- Varrimento da rede ------------------------------------------------------------------------------------
 
-// `aoProgredir` recebe { fase: 'inicio' | 'descobrir' | 'portas', … } para quem quiser mostrar o andamento.
+// `aoProgredir` recebe { fase: 'inicio' | 'descobrir' | 'portas', … } (e o vigiar, depois, { fase: 'triagem', dados }) para quem quiser mostrar o andamento.
 export async function varrer(db, { aprovar = false, aoProgredir = () => {} } = {}) {
   let local;
   try {
@@ -140,7 +140,7 @@ function erroDaTriagem(erro) {
 }
 
 // `cliente` é para os testes: sem ele, usa a API a sério com a chave do .env.
-export async function fazerTriagem(db, { cliente } = {}) {
+export async function fazerTriagem(db, { cliente, aoProgredir } = {}) {
   const recolhido = recolher(db);
   if (!recolhido) return semVarrimentos();
   const { varrimentoId, dados, ancoras } = recolhido;
@@ -153,6 +153,8 @@ export async function fazerTriagem(db, { cliente } = {}) {
     cliente = new Anthropic();
   }
 
+  // A app mostra o que o modelo está a ler enquanto espera pela resposta.
+  aoProgredir?.({ fase: 'triagem', dados });
   let resultado;
   try {
     resultado = await triar(dados, cliente);
@@ -183,6 +185,8 @@ function apresentarTriagem(db, { id, data, modelo, dados, resposta, ancoras, uso
     uso,
     nivel_geral: triagem.nivel_geral,
     resumo: triagem.resumo,
+    // O que seguiu para o modelo, tal como seguiu: a app mostra-o como evidência e liga cada achado às suas linhas.
+    dados,
     achados: triagem.achados.map((a) => ({ ...a, factos_sem_apoio: semApoioNosDados(a.nos_dados, dados) })),
     avisos,
     perguntas: perguntasDe(db, { id, resposta: JSON.stringify(resposta), ancoras: JSON.stringify(ancoras) }),
@@ -283,6 +287,6 @@ export async function guardarChave(chave, { cliente } = {}) {
 export async function vigiar(db, { aprovar = false, semLogs = false, aoProgredir, cliente } = {}) {
   const varrimento = await varrer(db, { aprovar, aoProgredir });
   const logins = semLogs ? null : await lerLogs(db);
-  const triagem = await fazerTriagem(db, { cliente });
+  const triagem = await fazerTriagem(db, { cliente, aoProgredir });
   return { ok: triagem.ok, varrimento, logins, triagem };
 }

@@ -14,6 +14,9 @@ Bibliotecas de execução do MinGW-w64 (libstdc++-6.dll, libgcc_s_seh-1.dll, lib
   libstdc++ e libgcc: GPL v3 com a "GCC Runtime Library Exception", que permite distribuí-las com programas
   compilados pelo GCC. libwinpthread: licença MIT/BSD do projeto MinGW-w64.
 
+Fontes Geist (The Geist Project Authors) e JetBrains Mono (The JetBrains Mono Project Authors), sob a SIL Open Font
+  License 1.1 (OFL-Geist.txt e OFL-JetBrainsMono.txt). Vão embebidas no analista.exe.
+
 Node.js (pasta node), sob a licença MIT, mais as licenças das bibliotecas que o Node inclui: node/LICENSE.
 
 Bibliotecas do motor (pasta motor/node_modules). Cada uma traz a sua licença na própria pasta:

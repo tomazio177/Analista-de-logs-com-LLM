@@ -47,8 +47,14 @@ test('a triagem devolve achados, avisos e perguntas numeradas, e fica guardada',
   comBaseTemporaria(async (abrirBase) => {
     const db = abrirBase();
     casa(db);
-    const r = await fazerTriagem(db, { cliente: clienteFalso(resposta) });
+    const andamento = [];
+    const r = await fazerTriagem(db, { cliente: clienteFalso(resposta), aoProgredir: (e) => andamento.push(e) });
     assert.equal(r.ok, true);
+    // Antes de chamar o modelo, avisa o que vai ler; e a resposta traz os mesmos dados, para a app ligar achados a linhas.
+    assert.deepEqual(andamento.map((e) => e.fase), ['triagem']);
+    assert.deepEqual(r.dados, andamento[0].dados);
+    assert.deepEqual(r.dados.aparelhos.map((a) => a.id), ['d1', 'd2']);
+    assert.deepEqual(ultimaTriagem(db).dados, r.dados);
     assert.equal(r.triagem_id, 1);
     assert.deepEqual(r.uso, { entrada: 10, saida: 20 });
     assert.deepEqual(r.achados[0].factos_sem_apoio, []);
