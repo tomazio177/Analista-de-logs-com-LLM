@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QListView>
+#include <QScreen>
 #include <QScrollBar>
 #include <QFrame>
 #include <QFile>
@@ -261,6 +262,16 @@ private slots:
         QVERIFY(titulo);
         QCOMPARE(titulo->textFormat(), Qt::PlainText);
         QCOMPARE(titulo->text(), QString("<img src='x'><b>Telemóvel</b>gnp")); // literal, sem a inversão de direção
+    }
+    void janela_cabeNoEcraEEscreveAConfiancaComAcento()
+    {
+        Motor motor;
+        JanelaPrincipal janela(&motor);
+        const QSize util = janela.screen()->availableGeometry().size();
+        QVERIFY(janela.width() <= util.width() && janela.height() <= util.height());
+
+        janela.mostrarTriagem(triagemDeExemplo()); // os achados de exemplo têm confiança "media"
+        QVERIFY(contem(&janela, "CONFIANÇA MÉDIA"));
     }
     void janela_aTriagemSeguinteSubstituiAAnterior()
     {

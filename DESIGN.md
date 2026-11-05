@@ -168,7 +168,7 @@ Tamanhos em pixels lógicos; o Qt escala com o DPI. `QFont::PreferAntialias` e `
 
 - **Densidade bimodal.** A coluna de evidência é densa: linhas de 20 px, sem espaço entre elas, gutter de 44 px com número de linha e marca. O cabeçalho da análise respira: 32 px acima e abaixo do numeral.
 - **Topologia fixa**: barra superior (44 px) · faixas (só quando há) · `QSplitter` horizontal com evidência à esquerda e análise à direita. O divisor é uma hairline de 1 px com área de agarrar de 6 px.
-- Tamanho inicial 1280×800; mínimo 900×600. Abaixo de 1040 px de largura, a evidência encolhe até 360 px antes de a análise encolher.
+- Tamanho inicial 1280×800, ou a área útil do ecrã se for menor (num 1080p a 150% sobram 1280×688); mínimo 800×480. Abaixo de 1040 px de largura, a evidência encolhe até 360 px antes de a análise encolher.
 - Grelha de 4 px. Margens internas dos painéis: 20 px na análise, 0 na evidência (a lista vai de borda a borda; o texto começa depois do gutter).
 
 ## Elevation & Depth

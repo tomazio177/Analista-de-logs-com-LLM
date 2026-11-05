@@ -23,6 +23,7 @@
 #include <QPainterPath>
 #include <QParallelAnimationGroup>
 #include <QSequentialAnimationGroup>
+#include <QScreen>
 #include <QScrollArea>
 #include <QSplitter>
 #include <QTextBlock>
@@ -246,8 +247,9 @@ protected:
 JanelaPrincipal::JanelaPrincipal(Motor *motor, QWidget *pai) : QMainWindow(pai), motor_(motor)
 {
     setWindowTitle(QStringLiteral("Analista de logs"));
-    resize(1280, 800);
-    setMinimumSize(900, 600);
+    setMinimumSize(800, 480);
+    // 1280×800 não cabe num ecrã 1080p a 150% (sobram 1280×688): nunca abre maior do que a área útil, sem contar a barra de título.
+    resize(QSize(1280, 800).boundedTo(screen()->availableGeometry().size() - QSize(16, 40)));
 
     auto *centro = new QWidget;
     auto *raiz = new QVBoxLayout(centro);
@@ -1087,7 +1089,7 @@ QWidget *JanelaPrincipal::cartaoDoAchado(const QJsonObject &a, const QVector<int
             rodape->addWidget(rotuloMeta(QStringLiteral("+%1").arg(grupos.size() - mostrar), Tema::cor(Cor::Claude)));
     }
     rodape->addStretch(1);
-    rodape->addWidget(rotuloMeta(QStringLiteral("Confiança ") + a.value(QStringLiteral("confianca")).toString(), Tema::cor(Cor::TextoSecundario)));
+    rodape->addWidget(rotuloMeta(QStringLiteral("Confiança ") + nomeDaGravidade(a.value(QStringLiteral("confianca")).toString()), Tema::cor(Cor::TextoSecundario)));
     v->addLayout(rodape);
     return c;
 }
